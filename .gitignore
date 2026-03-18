@@ -1,4 +1,34 @@
+# macOS
+.DS_Store
+
+# MATLAB / Simulink editor & autosave
 *.asv
+*~
+
+# Simulink generated/build artifacts
 slprj/
 *.slxc
 *.mex*
+
+# MATLAB cache/preferences (project-local)
+*.mldatx
+*.autosave
+
+# Code generation outputs
+codegen/
+*_ert_rtw/
+*_grt_rtw/
+*.rtw
+*.tmf
+*.mk
+*.d
+*.a
+*.o
+
+# Coverage/profiling/test artifacts
+coverage/
+html/
+
+# Logs / temporary files
+*.log
+*.tmp
