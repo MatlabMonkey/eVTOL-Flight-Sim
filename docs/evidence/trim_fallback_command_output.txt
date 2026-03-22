@@ -1,0 +1,52 @@
+== speed 40 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_40mps.json
+Best candidate:
+  alpha_deg=15.950, rpm_front=1551.7, rpm_rear=6251.4, residual=0.000 N
+Best feasible candidate: alpha_deg=16.000, rpm_front=1556.0, rpm_rear=6250.9, residual=0.000 N
+
+== speed 60 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_60mps.json
+Best candidate:
+  alpha_deg=15.850, rpm_front=2314.5, rpm_rear=6015.5, residual=0.000 N
+Best feasible candidate: alpha_deg=16.000, rpm_front=2334.0, rpm_rear=6011.7, residual=0.000 N
+
+== speed 70 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_70mps.json
+Best candidate:
+  alpha_deg=15.850, rpm_front=2700.3, rpm_rear=5856.4, residual=0.000 N
+Best feasible candidate: alpha_deg=16.000, rpm_front=2723.0, rpm_rear=5851.0, residual=0.000 N
+
+== speed 80 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_80mps.json
+Best candidate:
+  alpha_deg=10.100, rpm_front=2112.5, rpm_rear=5857.6, residual=0.000 N
+Best feasible candidate: alpha_deg=10.000, rpm_front=2096.4, rpm_rear=5859.7, residual=0.000 N
+
+== speed 40 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_40mps.json
+Best candidate:
+  alpha_deg=16.000, rpm_front=0.0, rpm_rear=2759.4, residual=25036.265
+  residual [Fx,Fz,My] = [-1743.275, 22650.735, -10522.346]
+No feasible candidate met residual<500 and RPM<=8000 constraints.
+
+== speed 60 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_60mps.json
+Best candidate:
+  alpha_deg=16.000, rpm_front=1680.6, rpm_rear=2779.9, residual=22635.998
+  residual [Fx,Fz,My] = [-1888.809, 20457.405, -9503.44]
+No feasible candidate met residual<500 and RPM<=8000 constraints.
+
+== speed 70 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_70mps.json
+Best candidate:
+  alpha_deg=16.000, rpm_front=2229.9, rpm_rear=2788.9, residual=21077.386
+  residual [Fx,Fz,My] = [-1758.754, 19048.801, -8849.076]
+No feasible candidate met residual<500 and RPM<=8000 constraints.
+
+== speed 80 m/s ==
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/trim_fallback_80mps.json
+Best candidate:
+  alpha_deg=16.000, rpm_front=2729.6, rpm_rear=2799.2, residual=19278.987
+  residual [Fx,Fz,My] = [-1608.691, 17423.489, -8094.041]
+No feasible candidate met residual<500 and RPM<=8000 constraints.
+
