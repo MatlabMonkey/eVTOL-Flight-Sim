@@ -1,0 +1,10 @@
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/metrics_example_latest.json
+energy_proxy            : 191.998857
+accel_rms               : 3.499622
+jerk_rms                : 1.154657
+control_smoothness      : 0.273327
+transition_start_s      : 5.650000
+transition_time_s       : 9.600000
+overshoot_mps           : 0.000000
+settling_time_s         : 9.600000
+target_speed_mps        : 55.000000

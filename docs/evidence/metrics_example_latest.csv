@@ -1,0 +1,10 @@
+metric,value
+energy_proxy,191.998856709769
+accel_rms,3.4996223329646186
+jerk_rms,1.1546569788486682
+control_smoothness,0.27332690274817373
+transition_start_s,5.65
+transition_time_s,9.6
+overshoot_mps,0.0
+settling_time_s,9.6
+target_speed_mps,55.0
