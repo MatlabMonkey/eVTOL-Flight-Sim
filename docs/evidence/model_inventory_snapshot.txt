@@ -1,0 +1,71 @@
+
+=== Brown_Full_Sim.slx ===
+Top-level block count: 65
+  SubSystem  | C_N/B to C_E/B                 | src= | sys=system_32
+  SubSystem  | FlightGear Interface           | src= | sys=system_138
+  Reference  | Left Tail                      | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  SubSystem  | Propellers                     | src= | sys=system_90
+  Reference  | Right Tail                     | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  Reference  | Rotational Dynamics            | src=Brown_Flight_Controls_lib/Rotational Dynamics | sys=
+  Reference  | Translational Dynamics         | src=Brown_Flight_Controls_lib/Translational Dynamics | sys=
+  Reference  | Translational Kinematics       | src=Brown_Flight_Controls_lib/Translational Kinematics | sys=
+  Reference  | V_rel 2 Vinf Alpha Beta        | src=Brown_Flight_Controls_lib/V_rel 2 Vinf Alpha Beta | sys=
+  Reference  | Wing                           | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  Reference  | roational kinematics           | src=Brown_Flight_Controls_lib/roational kinematics | sys=
+  SubSystem  | wind model (dryden)            | src= | sys=system_61
+
+=== TESTER_Brown_Full_Sim.slx ===
+Top-level block count: 67
+  SubSystem  | C_N/B to C_E/B                 | src= | sys=system_32
+  SubSystem  | FlightGear Interface           | src= | sys=system_130
+  Reference  | Left Tail                      | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  SubSystem  | Propellers                     | src= | sys=system_90
+  Reference  | Right Tail                     | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  Reference  | Rotational Dynamics            | src=Brown_Flight_Controls_lib/Rotational Dynamics | sys=
+  Reference  | Translational Dynamics         | src=Brown_Flight_Controls_lib/Translational Dynamics | sys=
+  Reference  | Translational Kinematics       | src=Brown_Flight_Controls_lib/Translational Kinematics | sys=
+  Reference  | V_rel 2 Vinf Alpha Beta        | src=Brown_Flight_Controls_lib/V_rel 2 Vinf Alpha Beta | sys=
+  Reference  | Wing                           | src=Brown_Flight_Controls_lib/aeroSurface | sys=
+  Reference  | roational kinematics           | src=Brown_Flight_Controls_lib/roational kinematics | sys=
+  SubSystem  | wind model (dryden)            | src= | sys=system_61
+
+=== Brown_Flight_Controls_lib.slx ===
+Top-level block count: 21
+  SubSystem  | Front Propellers               | src= | sys=system_167
+  SubSystem  | MATLAB Function                | src= | sys=system_1
+  SubSystem  | MATLAB Function1               | src= | sys=system_2
+  SubSystem  | MATLAB Function2               | src= | sys=system_3
+  SubSystem  | MATLAB Function3               | src= | sys=system_4
+  SubSystem  | MATLAB Function4               | src= | sys=system_46
+  SubSystem  | MATLAB Function5               | src= | sys=system_78
+  SubSystem  | MATLAB Function6               | src= | sys=system_79
+  SubSystem  | Rear Propellers                | src= | sys=system_168
+  SubSystem  | Rotational Dynamics            | src= | sys=system_127
+  SubSystem  | Subsystem1                     | src= | sys=system_91
+  SubSystem  | Subsystem2                     | src= | sys=system_96
+  SubSystem  | Translational Dynamics         | src= | sys=system_107
+  SubSystem  | Translational Kinematics       | src= | sys=system_66
+  SubSystem  | V_rel 2 Vinf Alpha Beta        | src= | sys=system_155
+  SubSystem  | aeroSurface                    | src= | sys=system_159
+  SubSystem  | eul2quat                       | src= | sys=system_25
+  SubSystem  | quatConj                       | src= | sys=system_47
+  SubSystem  | quatRot                        | src= | sys=system_54
+  SubSystem  | quaternion multiplicaiton      | src= | sys=system_5
+  SubSystem  | roational kinematics           | src= | sys=system_80
+
+=== Stateflow EML functions in Brown_Flight_Controls_lib.slx ===
+- simulink/stateflow/chart_101.xml :: roational kinematics/MATLAB Function7 :: function dcm  = eul2dcm(phi, theta, psi)
+- simulink/stateflow/chart_110.xml :: V_rel 2 Vinf Alpha Beta :: function [V_inf, alpha, beta] = compute_aero_angles(v_rel)
+- simulink/stateflow/chart_119.xml :: aeroSurface :: function [F_cg, M_cg] = aeroSurface(v_body, omega, surf, CG)
+- simulink/stateflow/chart_130.xml :: Front Propellers :: function [F_cg, M_cg] = frontMotorGroup(rpms, tilt_deg, v_body, omega, pivot_pos, hub_offset, spin_dir, kT, kQ, CG)
+- simulink/stateflow/chart_147.xml :: Rear Propellers :: function [F_cg, M_cg] = rearMotorGroup(rpms, v_body, omega, spin_dir, kT, kQ, CG, prop_pos)
+- simulink/stateflow/chart_21.xml :: MATLAB Function1 :: function [roll, pitch, yaw] = dcm2eul(dcm)
+- simulink/stateflow/chart_30.xml :: MATLAB Function :: function dcm  = eul2dcm(phi, theta, psi)
+- simulink/stateflow/chart_39.xml :: MATLAB Function2 :: function A  = affine(DCM, trans)
+- simulink/stateflow/chart_47.xml :: MATLAB Function3 :: function A  = affineInv(DCM, trans)
+- simulink/stateflow/chart_55.xml :: MATLAB Function4 :: function euler = quat2euler(q)
+- simulink/stateflow/chart_62.xml :: MATLAB Function5 :: function eul_dot = RK_theta_dot(eul, omega)
+- simulink/stateflow/chart_70.xml :: MATLAB Function6 :: function C_NBdot = dcmDot(C_NB, omega_BN)
+- simulink/stateflow/chart_78.xml :: roational kinematics/MATLAB Function4 :: function euler = quat2euler(q)
+- simulink/stateflow/chart_85.xml :: Subsystem1/MATLAB Function6 :: function C_NBdot = dcmDot(C_NB, omega_BN)
+- simulink/stateflow/chart_93.xml :: Subsystem2/MATLAB Function5 :: function eul_dot = RK_theta_dot(eul, omega)

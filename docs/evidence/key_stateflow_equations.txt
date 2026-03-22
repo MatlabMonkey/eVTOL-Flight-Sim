@@ -1,0 +1,180 @@
+
+================================================================================
+chart_119.xml :: aeroSurface
+================================================================================
+function [F_cg, M_cg] = aeroSurface(v_body, omega, surf, CG)
+if norm(v_body) < 0.1
+    F_cg = [0;0;0]; M_cg = [0;0;0]; 
+    return;
+end
+
+r_arm = surf.pos - CG; 
+
+%accounting for rotation of the plane - ignoring other things like downwash
+%angle 
+v_local = v_body + cross(omega, r_arm);
+V2 = sum(v_local.^2);
+v_mag = sqrt(V2);
+v_dir = v_local / v_mag; 
+alpha = surf.i - asin(dot(v_dir, surf.n)); 
+
+
+qS = surf.half_rho_S * V2;
+
+CL = surf.CL0 + surf.CLa * alpha;
+CD = surf.CD0 + surf.CDa * (alpha - surf.a0)^2; % assuming CDa is induced drag factor
+CM = surf.CM0 + surf.CMa * alpha;
+
+L = qS * CL;
+D = qS * CD;
+
+dir_D = -v_dir;
+
+% lift direction 
+dir_L = surf.n - dot(surf.n, v_dir) * v_dir; 
+if norm(dir_L) > 0; dir_L = dir_L / norm(dir_L); else; dir_L = surf.n; end
+
+% total force
+F_surf = L * dir_L + D * dir_D;
+
+% moment 
+m_axis = cross(surf.n, v_dir);
+if norm(m_axis) > 0; m_axis = m_axis / norm(m_axis); end
+M_surf = (qS * surf.c * CM) * m_axis;
+
+
+% forces at CG
+F_cg = F_surf;
+M_cg = M_surf + cross(r_arm, F_surf);
+
+end
+
+================================================================================
+chart_130.xml :: Front Propellers
+================================================================================
+function [F_cg, M_cg] = frontMotorGroup(rpms, tilt_deg, v_body, omega, pivot_pos, hub_offset, spin_dir, kT, kQ, CG)
+    % Inputs:
+    % rpms:        [3x1] Motor speeds in RPM
+    % tilt_deg:    [3x1] vector of tilt angles (0 = hover, 90 = cruise)
+    % v_body:      [3x1] Aircraft body velocities
+    % omega:       [3x1] Aircraft rotational rates
+    % pivot_pos:   [3x3] [x,y,z] locations of the 3 internal pivots 
+    % hub_offset:  scalar, exact distance from pivot to hub (0.50m)
+    % spin_dir:    [3x1] 1 for CW, -1 for CCW
+    % kT, kQ:      scalars, thrust and torque coefficients
+    % CG:          [3x1] Instantaneous center of gravity
+    
+    F_cg = zeros(3,1);
+    M_cg = zeros(3,1);
+    
+    for i = 1:3
+        % 1. Calculate Thrust Normal Vector for THIS specific motor
+        n = [sind(tilt_deg(i)); 0; -cosd(tilt_deg(i))];
+        
+        % 2. Calculate Propeller Hub Location mathematically
+        % Hub pushes out from the internal pivot along the normal vector
+        r_hub = pivot_pos(:, i) + (hub_offset * n);
+        
+        % Moment arm from CG to Hub
+        r_arm = r_hub - CG;
+        
+        % 3. Calculate Thrust/Torque
+        w = rpms(i);
+        T_mag = kT * w^2;
+        Q_mag = kQ * w^2 * spin_dir(i); 
+        
+        % 4. Apply vector directions
+        F_motor = T_mag * n;
+        M_motor = -Q_mag * n;  % Torque opposes spin
+        
+        % 5. Sum Forces and Moments at CG
+        F_cg = F_cg + F_motor;
+        M_cg = M_cg + cross(r_arm, F_motor) + M_motor;
+    end
+end
+
+================================================================================
+chart_147.xml :: Rear Propellers
+================================================================================
+function [F_cg, M_cg] = rearMotorGroup(rpms, v_body, omega, spin_dir, kT, kQ, CG, prop_pos)
+    % Inputs:
+    % rpms:        [3x1] Motor speeds in RPM
+    % v_body:      [3x1] Aircraft body velocities
+    % omega:       [3x1] Aircraft rotational rates
+    % pivot_pos:   [3x3] [x,y,z] Exact static locations of the 3 rear hubs 
+    % spin_dir:    [3x1] 1 for CW, -1 for CCW
+    % kT, kQ:      scalars, thrust and torque coefficients
+    % CG:          [3x1] Instantaneous center of gravity
+    
+    F_cg = zeros(3,1);
+    M_cg = zeros(3,1);
+    
+    % Rear motors never tilt. Thrust is permanently straight UP (-Z)
+    n = [0; 0; -1];
+    
+    for i = 1:3
+        % For the rear, pivot_pos IS the hub position (no standoff)
+        r_hub = prop_pos(:, i);
+        
+        % Moment arm from CG to Hub
+        r_arm = r_hub - CG;
+        
+        % Calculate Thrust/Torque
+        w = rpms(i);
+        T_mag = kT * w^2;
+        Q_mag = kQ * w^2 * spin_dir(i); 
+        
+        % Apply vector directions
+        F_motor = T_mag * n;
+        M_motor = -Q_mag * n;  % Torque opposes spin
+        
+        % Sum Forces and Moments at CG
+        F_cg = F_cg + F_motor;
+        M_cg = M_cg + cross(r_arm, F_motor) + M_motor;
+    end
+end
+
+================================================================================
+chart_110.xml :: V_rel 2 Vinf Alpha Beta
+================================================================================
+function [V_inf, alpha, beta] = compute_aero_angles(v_rel)
+    U_prime = v_rel(1);
+    V_prime   = v_rel(2); % V' (using V_rel to avoid confusing with absolute V)
+    W_prime = v_rel(3);
+
+    V_inf = sqrt(U_prime^2 + V_prime^2 + W_prime^2);
+    alpha = atan2(W_prime, U_prime);
+    if V_inf > 1e-6
+        beta = asin(V_prime / V_inf);
+    else
+        beta = 0.0;
+    end
+end
+
+================================================================================
+chart_62.xml :: MATLAB Function5
+================================================================================
+function eul_dot = RK_theta_dot(eul, omega)
+phi = eul(1); th = eul(2);
+p = omega(1); q = omega(2); r = omega(3);
+
+T = [ 1,  sin(phi)*tan(th),  cos(phi)*tan(th);
+      0,  cos(phi),        -sin(phi);
+      0,  sin(phi)/cos(th), cos(phi)/cos(th) ];
+
+eul_dot = T*[p;q;r];
+end
+
+
+================================================================================
+chart_70.xml :: MATLAB Function6
+================================================================================
+
+function C_NBdot = dcmDot(C_NB, omega_BN)
+W = [ 0, -omega_BN(3),  omega_BN(2);
+      omega_BN(3),  0, -omega_BN(1);
+     -omega_BN(2),  omega_BN(1),  0 ];
+
+C_NBdot = W*C_NB;
+end
+

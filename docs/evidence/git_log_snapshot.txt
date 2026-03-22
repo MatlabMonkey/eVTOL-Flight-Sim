@@ -1,0 +1,4 @@
+3400a5d (HEAD -> main, origin/main, origin/HEAD) Fix smoke test path/context handling and robust pass criteria
+838e006 Phase 1: add README, smoke test, changelog, and git hygiene (#1)
+1fc8218 Clean initial commit without simulation junk
+860a15b Initial commit (the right way this time)

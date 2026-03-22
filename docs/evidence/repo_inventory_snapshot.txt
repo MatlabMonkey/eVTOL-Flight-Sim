@@ -1,0 +1,107 @@
+# Repo inventory
+Sat Mar 21 17:53:47 PDT 2026
+/Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim
+total 9512
+drwxr-xr-x  17 Arias  staff      544 Mar 21 17:47 .
+drwxr-xr-x  23 Arias  staff      736 Mar 18 23:37 ..
+drwxr-xr-x  15 Arias  staff      480 Mar 21 17:43 .git
+-rw-r--r--   1 Arias  staff      367 Mar 18 03:42 .gitignore
+-rw-r--r--   1 Arias  staff  3399083 Mar 18 00:20 BROWN_TESTER_external_forces.pdf
+-rw-r--r--   1 Arias  staff   299412 Mar 18 00:20 Brown_Flight_Controls_lib.slx
+-rw-r--r--   1 Arias  staff   167607 Mar 18 00:20 Brown_Full_Sim.slx
+-rw-r--r--   1 Arias  staff   163201 Mar 18 00:20 Brown_Full_Sim_FlightGear.slx
+-rw-r--r--   1 Arias  staff      893 Mar 18 03:42 CHANGELOG.md
+drwxr-xr-x  25 Arias  staff      800 Mar 18 00:20 Flight_Gear
+-rw-r--r--   1 Arias  staff    15769 Mar 18 00:20 Full_Sim_Init.m
+-rw-r--r--   1 Arias  staff     2552 Mar 18 03:42 README.md
+-rw-r--r--   1 Arias  staff   164403 Mar 18 00:20 TESTER_Brown_Full_Sim.slx
+-rw-r--r--   1 Arias  staff   634239 Mar 18 00:20 TESTER_external_forces.mlx
+drwxr-xr-x   3 Arias  staff       96 Mar 21 17:47 docs
+-rw-r--r--   1 Arias  staff     4063 Mar 18 00:20 render_aircraft.m
+drwxr-xr-x   8 Arias  staff      256 Mar 21 17:48 scripts
+
+## File tree (depth<=3)
+.git/COMMIT_EDITMSG
+.git/FETCH_HEAD
+.git/HEAD
+.git/ORIG_HEAD
+.git/config
+.git/description
+.git/hooks/applypatch-msg.sample
+.git/hooks/commit-msg.sample
+.git/hooks/fsmonitor-watchman.sample
+.git/hooks/post-update.sample
+.git/hooks/pre-applypatch.sample
+.git/hooks/pre-commit.sample
+.git/hooks/pre-merge-commit.sample
+.git/hooks/pre-push.sample
+.git/hooks/pre-rebase.sample
+.git/hooks/pre-receive.sample
+.git/hooks/prepare-commit-msg.sample
+.git/hooks/push-to-checkout.sample
+.git/hooks/sendemail-validate.sample
+.git/hooks/update.sample
+.git/index
+.git/info/exclude
+.git/logs/HEAD
+.git/packed-refs
+.gitignore
+BROWN_TESTER_external_forces.pdf
+Brown_Flight_Controls_lib.slx
+Brown_Full_Sim.slx
+Brown_Full_Sim_FlightGear.slx
+CHANGELOG.md
+Flight_Gear/Assignment06_2024.pdf
+Flight_Gear/Brown_Full_Sim.slxc
+Flight_Gear/README_FlightGear.md
+Flight_Gear/TESTER_Brown_Full_Sim.slxc
+Flight_Gear/WS2_32.Rename2Lib
+Flight_Gear/WS2_32_x64.Rename2Lib
+Flight_Gear/WinSock2.h
+Flight_Gear/fg_autodetect_installation.m
+Flight_Gear/fg_build_array6dof.m
+Flight_Gear/fg_config.m
+Flight_Gear/fg_play_array6dof.m
+Flight_Gear/fg_replay_from_out.m
+Flight_Gear/fg_replay_from_sim.m
+Flight_Gear/fg_validate_config.m
+Flight_Gear/flightgear_sh.RenameToDotSH
+Flight_Gear/flightgear_sh.sh
+Flight_Gear/make_FlightGearSender.m
+Flight_Gear/net_fdm.hxx
+Flight_Gear/setup_flightgear_interface.m
+Flight_Gear/sfun_FlightGearSender.cpp
+Flight_Gear/stdint.hxx
+Flight_Gear/vtol_aircraft_render.m
+Full_Sim_Init.m
+README.md
+TESTER_Brown_Full_Sim.slx
+TESTER_external_forces.mlx
+docs/evidence/metrics_example_command_output.txt
+docs/evidence/metrics_example_latest.json
+docs/evidence/repo_inventory_snapshot.txt
+docs/evidence/smoke_test_command_output.txt
+docs/evidence/trim_fallback_40mps.json
+docs/evidence/trim_fallback_60mps.json
+docs/evidence/trim_fallback_70mps.json
+docs/evidence/trim_fallback_80mps.json
+docs/evidence/trim_fallback_command_output.txt
+docs/evidence/validation_command_output.txt
+docs/evidence/validation_latest.json
+docs/evidence/validation_latest.md
+render_aircraft.m
+scripts/__init__.py
+scripts/common/__init__.py
+scripts/common/evtol_model_parser.py
+scripts/metrics/__init__.py
+scripts/metrics/compute_transition_metrics.m
+scripts/metrics/compute_transition_metrics.py
+scripts/metrics/example_metrics_run.m
+scripts/metrics/example_metrics_run.py
+scripts/smoke_test.m
+scripts/trim/__init__.py
+scripts/trim/run_trim_check.m
+scripts/trim/trim_cruise.m
+scripts/trim/trim_cruise_fallback.py
+scripts/validation/__init__.py
+scripts/validation/check_physical_consistency.py

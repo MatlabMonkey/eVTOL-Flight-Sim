@@ -1,0 +1,41 @@
+## system_90 mask parameters relevant to props
+7:  <Block BlockType="Inport" Name="Motor RPMs [12x1]" SID="91">
+11:  <Block BlockType="Inport" Name="V_BA" SID="92">
+16:  <Block BlockType="Inport" Name="Tilt Angles [6x1]" SID="93">
+21:  <Block BlockType="Inport" Name="omega" SID="104">
+31:  <Block BlockType="Sum" Name="Add" SID="110">
+38:  <Block BlockType="Sum" Name="Add1" SID="111">
+45:  <Block BlockType="Demux" Name="Demux" SID="113">
+50:  <Block BlockType="Demux" Name="Demux1" SID="114">
+56:  <Block BlockType="Reference" Name="Front Left" SID="106">
+62:    <P Name="SourceBlock">Brown_Flight_Controls_lib/Front Propellers</P>
+71:      <P Name="pivot_pos">prop.posFL</P>
+73:      <P Name="kT">prop.k_Thrust</P>
+74:      <P Name="kQ">prop.k_Torque</P>
+75:      <P Name="CG">CG</P>
+76:      <P Name="spin_dir">prop.Lspin_dir</P>
+87:  <Block BlockType="Reference" Name="Front Right" SID="97">
+93:    <P Name="SourceBlock">Brown_Flight_Controls_lib/Front Propellers</P>
+102:      <P Name="pivot_pos">prop.posFR</P>
+104:      <P Name="kT">prop.k_Thrust</P>
+105:      <P Name="kQ">prop.k_Torque</P>
+106:      <P Name="CG">CG</P>
+107:      <P Name="spin_dir">prop.Rspin_dir</P>
+118:  <Block BlockType="Reference" Name="Rear Left" SID="132">
+124:    <P Name="SourceBlock">Brown_Flight_Controls_lib/Rear Propellers</P>
+133:      <P Name="prop_pos">prop.posRL</P>
+134:      <P Name="kT">prop.k_Thrust</P>
+135:      <P Name="kQ">prop.k_Torque</P>
+136:      <P Name="CG">CG</P>
+137:      <P Name="spin_dir">prop.Lspin_dir</P>
+148:  <Block BlockType="Reference" Name="Rear Right" SID="120">
+154:    <P Name="SourceBlock">Brown_Flight_Controls_lib/Rear Propellers</P>
+163:      <P Name="prop_pos">prop.posRR</P>
+164:      <P Name="kT">prop.k_Thrust</P>
+165:      <P Name="kQ">prop.k_Torque</P>
+166:      <P Name="CG">CG</P>
+167:      <P Name="spin_dir">prop.Rspin_dir</P>
+178:  <Block BlockType="Outport" Name="SUM_F_cg" SID="96">
+182:  <Block BlockType="Outport" Name="SUM_M_cg1" SID="109">
+
+## Full_Sim_Init references to spin_dir
