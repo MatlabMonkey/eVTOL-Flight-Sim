@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-03-21T17:51:44.529556",
+  "mass_properties": {
+    "mass_kg": 3040.0,
+    "cg_m": [
+      -0.04736842105263159,
+      0.0,
+      -0.25125
+    ],
+    "inertia_kgm2": [
+      [
+        23083.855999999996,
+        -1.1368683772161603e-13,
+        -749.2200000000007
+      ],
+      [
+        -1.1368683772161603e-13,
+        14400.12394736841,
+        1.4210854715202004e-14
+      ],
+      [
+        -749.2200000000007,
+        1.4210854715202004e-14,
+        36185.7524473684
+      ]
+    ],
+    "principal_moments_kgm2": [
+      14400.12394736842,
+      23041.151727700562,
+      36228.45671966784
+    ]
+  },
+  "derived": {
+    "weight_N": 29822.4,
+    "thrust_per_motor_at_1500rpm_N": 270.0,
+    "total_thrust_12_at_1500rpm_N": 3240.0,
+    "total_rear_thrust_6_at_1500rpm_N": 1620.0,
+    "T12_to_weight_ratio": 0.10864316755190728,
+    "Trear6_to_weight_ratio": 0.05432158377595364
+  },
+  "check_counts": {
+    "PASS": 10,
+    "FAIL": 2,
+    "WARN": 2
+  },
+  "checks": [
+    {
+      "name": "Mass positive",
+      "status": "PASS",
+      "details": "mass=3040.000 kg"
+    },
+    {
+      "name": "Mass plausible range",
+      "status": "PASS",
+      "details": "Expected 500..10000 kg for this class (heuristic)."
+    },
+    {
+      "name": "CG within component bounding box",
+      "status": "PASS",
+      "details": "CG=[-0.04736842105263159, 0.0, -0.25125], bbox_min=[-3.5, -6.5, -0.91], bbox_max=[3.0, 6.5, 0.0]"
+    },
+    {
+      "name": "Inertia matrix symmetry",
+      "status": "PASS",
+      "details": "J-J^T max abs=0.000e+00"
+    },
+    {
+      "name": "Inertia positive definite",
+      "status": "PASS",
+      "details": "principal moments=[14400.12394736842, 23041.151727700562, 36228.45671966784]"
+    },
+    {
+      "name": "Principal moments satisfy triangle inequality",
+      "status": "PASS",
+      "details": "I=[14400.12394736842, 23041.151727700562, 36228.45671966784]"
+    },
+    {
+      "name": "Front rotor count == 6",
+      "status": "PASS",
+      "details": "count=6"
+    },
+    {
+      "name": "Rear rotor count == 6",
+      "status": "PASS",
+      "details": "count=6"
+    },
+    {
+      "name": "Thrust coefficient positive",
+      "status": "PASS",
+      "details": "kT=0.00012"
+    },
+    {
+      "name": "Torque coefficient positive",
+      "status": "PASS",
+      "details": "kQ=1.5e-05"
+    },
+    {
+      "name": "Static thrust margin at 1500 RPM",
+      "status": "WARN",
+      "details": "T_motor=270.0 N, T_12=3240.0 N, T_rear6=1620.0 N, Weight=29822.4 N"
+    },
+    {
+      "name": "Init defines prop.Lspin_dir",
+      "status": "FAIL",
+      "details": "Required by Propellers subsystem mask."
+    },
+    {
+      "name": "Init defines prop.Rspin_dir",
+      "status": "FAIL",
+      "details": "Required by Propellers subsystem mask."
+    },
+    {
+      "name": "Propeller command saturation blocks present",
+      "status": "WARN",
+      "details": "No explicit Saturation block found in Propellers subsystem (system_90.xml)."
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/validation_latest.json
+Wrote /Users/Arias/.openclaw/workspace/eVTOL-Flight-Sim/docs/evidence/validation_latest.md
+Check counts: {'PASS': 10, 'FAIL': 2, 'WARN': 2}
