@@ -44,7 +44,6 @@ g = scenario.g;
 prop = aircraft.prop;
 compData = aircraft.compData;
 aeroData = aircraft.aeroData;
-controls = aircraft.controls; % Metadata for ruddervators / future flaperons
 
 Mass = aircraft.Mass;
 CG = aircraft.CG;
@@ -55,22 +54,6 @@ wingL = aircraft.wingL;
 wingR = aircraft.wingR;
 tailL = aircraft.tailL;
 tailR = aircraft.tailR;
-
-if isfield(wing, 'name')
-    wing = rmfield(wing, 'name');
-end
-if isfield(wingL, 'name')
-    wingL = rmfield(wingL, 'name');
-end
-if isfield(wingR, 'name')
-    wingR = rmfield(wingR, 'name');
-end
-if isfield(tailL, 'name')
-    tailL = rmfield(tailL, 'name');
-end
-if isfield(tailR, 'name')
-    tailR = rmfield(tailR, 'name');
-end
 
 pos_init = scenario.pos_init;
 V_init = scenario.V_init;
@@ -89,6 +72,5 @@ disp('Rendering 3D Aircraft Model...');
 render_aircraft(compData, CG, tilt_angle, ...
     'surfaces', aircraft.render_surfaces, ...
     'prop', prop, ...
-    'controls', controls, ...
     'thrust_tilt_deg', Tilt_angles, ...
     'title_text', sprintf('%s (Scenario: %s)', 'Brown eVTOL Aircraft', test_case));

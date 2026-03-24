@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Utilities to parse Full_Sim_Init.m and derive model quantities.
+"""Utilities to parse the Brown eVTOL MATLAB definition files.
 
 This parser is intentionally lightweight and tailored to this repository's
 current script format. It is used by validation / trim helper scripts to keep
@@ -88,9 +88,37 @@ def _parse_vector(vec_text: str, ctx: Dict[str, float]) -> np.ndarray:
     return np.array(vals, dtype=float)
 
 
+def _definition_source(path: Path) -> tuple[Path, str, str]:
+    text = path.read_text()
+    combined_text = text
+
+    try:
+        _extract_block(text, "compData")
+        _extract_block(text, "aeroData")
+        return path, text, combined_text
+    except ValueError:
+        pass
+
+    aircraft_path = path.with_name("aircraft_def.m")
+    if not aircraft_path.exists():
+        raise ValueError(
+            f"Could not locate compData/aeroData in {path} "
+            "and no sibling aircraft_def.m was found."
+        )
+
+    aircraft_text = aircraft_path.read_text()
+    combined_text = aircraft_text + "\n" + combined_text
+
+    scenario_path = path.with_name("scenario_def.m")
+    if scenario_path.exists():
+        combined_text = combined_text + "\n" + scenario_path.read_text()
+
+    return aircraft_path, aircraft_text, combined_text
+
+
 def parse_full_sim_init(path: str | Path = "Full_Sim_Init.m") -> Dict[str, Any]:
     p = Path(path)
-    text = p.read_text()
+    source_path, text, combined_text = _definition_source(p)
 
     flight_mode = float(re.search(r"\bflight_mode\s*=\s*([\-\d\.eE\+]+)\s*;", text).group(1))
     tilt_angle = 90.0 * flight_mode
@@ -183,7 +211,7 @@ def parse_full_sim_init(path: str | Path = "Full_Sim_Init.m") -> Dict[str, Any]:
         )
 
     return {
-        "path": str(p),
+        "path": str(source_path),
         "flight_mode": flight_mode,
         "tilt_angle": tilt_angle,
         "rho": rho,
@@ -191,7 +219,7 @@ def parse_full_sim_init(path: str | Path = "Full_Sim_Init.m") -> Dict[str, Any]:
         "prop": prop,
         "components": components,
         "surfaces": surfaces,
-        "raw_text": text,
+        "raw_text": combined_text,
     }
 
 

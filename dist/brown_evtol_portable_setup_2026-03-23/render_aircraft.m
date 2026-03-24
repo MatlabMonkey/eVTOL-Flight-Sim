@@ -8,13 +8,10 @@ function hFig = render_aircraft(varargin)
 %   render_aircraft('transition')
 %   render_aircraft('transition', 45)
 %   render_aircraft('Stable_6DOF')
-%   render_aircraft('cruise', 'delta_e_deg', 5, 'delta_r_deg', 3)
-%   render_aircraft('cruise', 'delta_f_deg', 10, 'delta_a_deg', 4)
 %   render_aircraft(compData, CG, tilt_angle)
 %   render_aircraft(compData, CG, tilt_angle, ...
 %       'surfaces', {wing, tailL, tailR}, ...
 %       'prop', prop, ...
-%       'controls', controls, ...
 %       'thrust_tilt_deg', Tilt_angles)
 
 if nargin == 0
@@ -23,7 +20,6 @@ if nargin == 0
     hFig = render_aircraft(aircraft.compData, aircraft.CG, scenario.visual_tilt_deg, ...
         'surfaces', aircraft.render_surfaces, ...
         'prop', aircraft.prop, ...
-        'controls', aircraft.controls, ...
         'thrust_tilt_deg', scenario.Tilt_angles, ...
         'title_text', sprintf('%s (Scenario: %s)', ...
             'Brown eVTOL Aircraft', scenario.name));
@@ -37,7 +33,6 @@ if ischar(varargin{1}) || (isstring(varargin{1}) && isscalar(varargin{1}))
     hFig = render_aircraft(aircraft.compData, aircraft.CG, tilt_angle, ...
         'surfaces', aircraft.render_surfaces, ...
         'prop', aircraft.prop, ...
-        'controls', aircraft.controls, ...
         'thrust_tilt_deg', thrust_tilt_deg, ...
         'title_text', title_text, ...
         extra_args{:});
@@ -51,16 +46,7 @@ tilt_angle = varargin{3};
 p = inputParser;
 p.addParameter('surfaces', {}, @(x) isempty(x) || iscell(x) || isstruct(x));
 p.addParameter('prop', struct(), @isstruct);
-p.addParameter('controls', struct(), @isstruct);
 p.addParameter('thrust_tilt_deg', [], @isnumeric);
-p.addParameter('delta_e', 0, @isnumeric);
-p.addParameter('delta_r', 0, @isnumeric);
-p.addParameter('delta_e_deg', 0, @isnumeric);
-p.addParameter('delta_r_deg', 0, @isnumeric);
-p.addParameter('delta_f', 0, @isnumeric);
-p.addParameter('delta_a', 0, @isnumeric);
-p.addParameter('delta_f_deg', 0, @isnumeric);
-p.addParameter('delta_a_deg', 0, @isnumeric);
 p.addParameter('show_vectors', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_labels', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_input_markers', false, @(x) islogical(x) || isnumeric(x));
@@ -71,9 +57,6 @@ p.parse(varargin{4:end});
 opts = p.Results;
 
 surfaces = localNormalizeSurfaces(opts.surfaces);
-[delta_e_rad, delta_r_rad, delta_f_rad, delta_a_rad] = localResolveControlInputs(opts);
-ruddervator_state = localRuddervatorState(opts.controls, delta_e_rad, delta_r_rad);
-flaperon_state = localFlaperonState(opts.controls, delta_f_rad, delta_a_rad);
 hub_offset = localHubOffset(opts.prop);
 standoff_length = hub_offset;
 standoff_offset = 0.5 * standoff_length;
@@ -107,7 +90,6 @@ end
 title(title_text, 'Color', 'w', 'FontSize', 14);
 
 N = size(compData, 1);
-control_surface_specs = struct('name', {}, 'pos', {}, 'dir', {}, 'deflection_deg', {}, 'kind', {});
 for i = 1:N
     name = compData{i, 1};
     type = compData{i, 2};
@@ -132,54 +114,6 @@ for i = 1:N
 
     color = localComponentColor(name, type);
 
-    if strcmp(type, 'box') && contains(name, 'Main Wing')
-        deflection_rad = localWingDeflection(name, flaperon_state);
-        [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-            localBuildWingWithFlaperon(dim, flaperon_state.chord_fraction, deflection_rad);
-        R = localRotationMatrix(eul);
-        V_fixed_trans = (R * V_fixed')' + pos;
-        V_ctrl_trans = (R * V_ctrl')' + pos;
-        patch('Vertices', V_fixed_trans, 'Faces', F_fixed, ...
-            'FaceColor', color, 'FaceAlpha', 0.85, ...
-            'EdgeColor', 'k', 'LineWidth', 1.0);
-        patch('Vertices', V_ctrl_trans, 'Faces', F_ctrl, ...
-            'FaceColor', [0.85 1.00 0.25], 'FaceAlpha', 0.92, ...
-            'EdgeColor', 'k', 'LineWidth', 1.0);
-        control_surface_specs(end + 1) = ... %#ok<AGROW>
-            localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, 'flaperon');
-        if opts.show_labels
-            label_pos = mean(V_ctrl_trans, 1);
-            text(label_pos(1), label_pos(2), label_pos(3), ...
-                sprintf(' %s flap %.1f deg', localShortWingName(name), rad2deg(deflection_rad)), ...
-                'Color', [0.90 1.00 0.65], 'FontSize', 9, 'FontWeight', 'bold');
-        end
-        continue;
-    end
-
-    if strcmp(type, 'box') && contains(name, 'V-Tail')
-        deflection_rad = localTailDeflection(name, ruddervator_state);
-        [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-            localBuildTailWithRuddervator(dim, ruddervator_state.chord_fraction, deflection_rad);
-        R = localRotationMatrix(eul);
-        V_fixed_trans = (R * V_fixed')' + pos;
-        V_ctrl_trans = (R * V_ctrl')' + pos;
-        patch('Vertices', V_fixed_trans, 'Faces', F_fixed, ...
-            'FaceColor', color, 'FaceAlpha', 0.85, ...
-            'EdgeColor', 'k', 'LineWidth', 1.0);
-        patch('Vertices', V_ctrl_trans, 'Faces', F_ctrl, ...
-            'FaceColor', [1.0 0.95 0.20], 'FaceAlpha', 0.92, ...
-            'EdgeColor', 'k', 'LineWidth', 1.0);
-        control_surface_specs(end + 1) = ... %#ok<AGROW>
-            localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, 'ruddervator');
-        if opts.show_labels
-            label_pos = mean(V_ctrl_trans, 1);
-            text(label_pos(1), label_pos(2), label_pos(3), ...
-                sprintf(' %s rv %.1f deg', localShortTailName(name), rad2deg(deflection_rad)), ...
-                'Color', [1.0 1.0 0.6], 'FontSize', 9, 'FontWeight', 'bold');
-        end
-        continue;
-    end
-
     if strcmp(type, 'fuselage')
         [V, F] = genFacetedFuselage(dim(1), dim(2), dim(3));
     elseif strcmp(type, 'box')
@@ -190,8 +124,13 @@ for i = 1:N
         continue;
     end
 
-    R = localRotationMatrix(eul);
-    V_trans = (R * V')' + pos;
+    phi = eul(1);
+    theta = eul(2);
+    psi = eul(3);
+    Rx = [1 0 0; 0 cos(phi) -sin(phi); 0 sin(phi) cos(phi)];
+    Ry = [cos(theta) 0 sin(theta); 0 1 0; -sin(theta) 0 cos(theta)];
+    Rz = [cos(psi) -sin(psi) 0; sin(psi) cos(psi) 0; 0 0 1];
+    V_trans = ((Rz * Ry * Rx) * V')' + pos;
 
     patch('Vertices', V_trans, 'Faces', F, ...
         'FaceColor', color, 'FaceAlpha', 0.85, ...
@@ -223,15 +162,9 @@ end
 
 if opts.show_vectors
     hAeroNormal = localPlotSurfaceNormals(surfaces, opts.normal_scale, opts.show_labels);
-    hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels);
     [hFrontThrust, hRearThrust] = localPlotThrustVectors( ...
         frontSpecs, rearSpecs, opts.thrust_scale, opts.show_labels);
     localPrintVectorSummary(surfaces, frontSpecs, rearSpecs);
-    localPrintControlSummary(ruddervator_state, flaperon_state, control_surface_specs);
-    if ~isempty(hControlNormal) && isgraphics(hControlNormal)
-        legend_handles(end + 1) = hControlNormal; %#ok<AGROW>
-        legend_labels{end + 1} = 'Control Surface Normals'; %#ok<AGROW>
-    end
     if ~isempty(hAeroNormal) && isgraphics(hAeroNormal)
         legend_handles(end + 1) = hAeroNormal; %#ok<AGROW>
         legend_labels{end + 1} = 'Aero Normal Vectors'; %#ok<AGROW>
@@ -340,77 +273,6 @@ for idx = 2:numel(surfaceInput)
 end
 end
 
-function [delta_e_rad, delta_r_rad, delta_f_rad, delta_a_rad] = localResolveControlInputs(opts)
-delta_e_rad = opts.delta_e + deg2rad(opts.delta_e_deg);
-delta_r_rad = opts.delta_r + deg2rad(opts.delta_r_deg);
-delta_f_rad = opts.delta_f + deg2rad(opts.delta_f_deg);
-delta_a_rad = opts.delta_a + deg2rad(opts.delta_a_deg);
-end
-
-function state = localRuddervatorState(controls, delta_e_rad, delta_r_rad)
-state = struct( ...
-    'enabled', false, ...
-    'chord_fraction', 0.30, ...
-    'left_deflection_rad', 0, ...
-    'right_deflection_rad', 0, ...
-    'label', 'Ruddervators');
-
-if ~isfield(controls, 'ruddervator') || isempty(controls.ruddervator)
-    return;
-end
-
-state.enabled = true;
-if isfield(controls.ruddervator, 'control_chord_fraction')
-    state.chord_fraction = controls.ruddervator.control_chord_fraction;
-end
-
-mix = [1, -1; 1, 1];
-if isfield(controls.ruddervator, 'mix_from_standard') && ...
-        isequal(size(controls.ruddervator.mix_from_standard), [2, 2])
-    mix = controls.ruddervator.mix_from_standard;
-end
-
-deflections = mix * [delta_e_rad; delta_r_rad];
-if isfield(controls.ruddervator, 'max_deflection_rad') && ~isempty(controls.ruddervator.max_deflection_rad)
-    deflections = max(min(deflections, controls.ruddervator.max_deflection_rad), ...
-        -controls.ruddervator.max_deflection_rad);
-end
-state.left_deflection_rad = deflections(1);
-state.right_deflection_rad = deflections(2);
-end
-
-function state = localFlaperonState(controls, delta_f_rad, delta_a_rad)
-state = struct( ...
-    'enabled', false, ...
-    'chord_fraction', 0.28, ...
-    'left_deflection_rad', 0, ...
-    'right_deflection_rad', 0, ...
-    'label', 'Flaperons');
-
-if ~isfield(controls, 'flaperon') || isempty(controls.flaperon)
-    return;
-end
-
-state.enabled = true;
-if isfield(controls.flaperon, 'control_chord_fraction')
-    state.chord_fraction = controls.flaperon.control_chord_fraction;
-end
-
-mix = [1, 1; 1, -1];
-if isfield(controls.flaperon, 'mix_from_standard') && ...
-        isequal(size(controls.flaperon.mix_from_standard), [2, 2])
-    mix = controls.flaperon.mix_from_standard;
-end
-
-deflections = mix * [delta_f_rad; delta_a_rad];
-if isfield(controls.flaperon, 'max_deflection_rad') && ~isempty(controls.flaperon.max_deflection_rad)
-    deflections = max(min(deflections, controls.flaperon.max_deflection_rad), ...
-        -controls.flaperon.max_deflection_rad);
-end
-state.left_deflection_rad = deflections(1);
-state.right_deflection_rad = deflections(2);
-end
-
 function color = localComponentColor(name, type)
 if strcmp(type, 'fuselage')
     color = [0.0 1.0 1.0];
@@ -428,32 +290,6 @@ elseif strcmp(type, 'box')
     color = [0.0 1.0 0.0];
 else
     color = [0.5 0.5 0.5];
-end
-end
-
-function deflection_rad = localTailDeflection(name, state)
-deflection_rad = 0;
-if ~state.enabled
-    return;
-end
-
-if contains(name, 'L V-Tail')
-    deflection_rad = state.left_deflection_rad;
-elseif contains(name, 'R V-Tail')
-    deflection_rad = state.right_deflection_rad;
-end
-end
-
-function deflection_rad = localWingDeflection(name, state)
-deflection_rad = 0;
-if ~state.enabled
-    return;
-end
-
-if contains(name, 'L Main Wing')
-    deflection_rad = state.left_deflection_rad;
-elseif contains(name, 'R Main Wing')
-    deflection_rad = state.right_deflection_rad;
 end
 end
 
@@ -653,26 +489,6 @@ for idx = 1:numel(rearSpecs)
 end
 end
 
-function hFirst = localPlotControlSurfaceNormals(specs, scale, show_labels)
-hFirst = [];
-for idx = 1:numel(specs)
-    spec = specs(idx);
-    h = quiver3(spec.pos(1), spec.pos(2), spec.pos(3), ...
-        scale * spec.dir(1), scale * spec.dir(2), scale * spec.dir(3), 0, ...
-        'Color', [1.0 0.95 0.20], 'LineWidth', 2, 'MaxHeadSize', 0.6);
-    if isempty(hFirst)
-        hFirst = h;
-    end
-
-    if show_labels
-        label_pos = spec.pos + (scale + 0.1) * spec.dir;
-        text(label_pos(1), label_pos(2), label_pos(3), ...
-            sprintf(' %s n', spec.name), ...
-            'Color', [1.0 1.0 0.6], 'FontSize', 9, 'FontWeight', 'bold');
-    end
-end
-end
-
 function localPrintVectorSummary(surfaces, frontSpecs, rearSpecs)
 disp('Aero surface normal vectors:');
 for idx = 1:numel(surfaces)
@@ -698,121 +514,12 @@ for idx = 1:numel(rearSpecs)
 end
 end
 
-function localPrintControlSummary(ruddervator_state, flaperon_state, specs)
-if ~ruddervator_state.enabled && ~flaperon_state.enabled
-    return;
-end
-
-disp('Ruddervator deflections:');
-fprintf('  L tail ruddervator = %6.2f deg\n', rad2deg(ruddervator_state.left_deflection_rad));
-fprintf('  R tail ruddervator = %6.2f deg\n', rad2deg(ruddervator_state.right_deflection_rad));
-
-disp('Flaperon deflections:');
-fprintf('  L wing flaperon   = %6.2f deg\n', rad2deg(flaperon_state.left_deflection_rad));
-fprintf('  R wing flaperon   = %6.2f deg\n', rad2deg(flaperon_state.right_deflection_rad));
-
-if isempty(specs)
-    return;
-end
-
-disp('Control-surface normal vectors:');
-for idx = 1:numel(specs)
-    spec = specs(idx);
-    fprintf('  %-10s pos = [%6.2f %6.2f %6.2f], n = [%5.2f %5.2f %5.2f]\n', ...
-        spec.name, spec.pos(1), spec.pos(2), spec.pos(3), ...
-        spec.dir(1), spec.dir(2), spec.dir(3));
-end
-end
-
 function surf_name = localSurfaceName(surf, idx)
 if isfield(surf, 'name') && ~isempty(surf.name)
     surf_name = surf.name;
 else
     surf_name = sprintf('Surface %d', idx);
 end
-end
-
-function short_name = localShortTailName(name)
-if contains(name, 'L V-Tail')
-    short_name = 'L Tail';
-elseif contains(name, 'R V-Tail')
-    short_name = 'R Tail';
-else
-    short_name = char(name);
-end
-end
-
-function short_name = localShortWingName(name)
-if contains(name, 'L Main Wing')
-    short_name = 'L Wing';
-elseif contains(name, 'R Main Wing')
-    short_name = 'R Wing';
-else
-    short_name = char(name);
-end
-end
-
-function [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-    localBuildTailWithRuddervator(dim, control_chord_fraction, deflection_rad)
-[V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-    localBuildTrailingEdgeSurface(dim, control_chord_fraction, deflection_rad);
-end
-
-function [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-    localBuildWingWithFlaperon(dim, control_chord_fraction, deflection_rad)
-[V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-    localBuildTrailingEdgeSurface(dim, control_chord_fraction, deflection_rad);
-end
-
-function [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-    localBuildTrailingEdgeSurface(dim, control_chord_fraction, deflection_rad)
-chord = dim(1);
-span = dim(2);
-thickness = dim(3);
-
-control_chord_fraction = min(max(control_chord_fraction, 0.05), 0.95);
-ctrl_chord = chord * control_chord_fraction;
-fixed_chord = chord - ctrl_chord;
-
-% Positive x is forward in this model, so the control surface belongs on
-% the aft/trailing-edge side, which is the negative-x side.
-[V_fixed, F_fixed] = genCleanBox(fixed_chord, span, thickness);
-V_fixed(:, 1) = V_fixed(:, 1) + 0.5 * ctrl_chord;
-
-[V_ctrl, F_ctrl] = genCleanBox(ctrl_chord, span, thickness);
-V_ctrl(:, 1) = V_ctrl(:, 1) - 0.5 * fixed_chord;
-
-hinge_local = [-0.5 * chord + ctrl_chord, 0, 0];
-R_deflect = localRotationMatrix([0, deflection_rad, 0]);
-V_ctrl = (R_deflect * (V_ctrl - hinge_local)')' + hinge_local;
-end
-
-function spec = localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, kind)
-R_surface = localRotationMatrix(eul);
-R_deflect = localRotationMatrix([0, deflection_rad, 0]);
-dir_vec = R_surface * R_deflect * [0; 0; -1];
-dir_vec = dir_vec / max(norm(dir_vec), eps);
-
-spec = struct();
-if strcmp(kind, 'flaperon')
-    spec.name = localShortWingName(name);
-else
-    spec.name = localShortTailName(name);
-end
-spec.pos = mean(V_ctrl_trans, 1);
-spec.dir = dir_vec(:)';
-spec.deflection_deg = rad2deg(deflection_rad);
-spec.kind = kind;
-end
-
-function R = localRotationMatrix(eul)
-phi = eul(1);
-theta = eul(2);
-psi = eul(3);
-Rx = [1 0 0; 0 cos(phi) -sin(phi); 0 sin(phi) cos(phi)];
-Ry = [cos(theta) 0 sin(theta); 0 1 0; -sin(theta) 0 cos(theta)];
-Rz = [cos(psi) -sin(psi) 0; sin(psi) cos(psi) 0; 0 0 1];
-R = Rz * Ry * Rx;
 end
 
 function [V, F] = genCleanBox(L, W, H)
