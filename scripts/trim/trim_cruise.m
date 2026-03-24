@@ -26,7 +26,14 @@ result.notes = {};
 
 % Ensure workspace variables exist.
 if ~evalin('base', 'exist(''Mass'', ''var'') && exist(''prop'', ''var'')')
-    evalin('base', 'run(''Full_Sim_Init.m'');');
+    this_file = mfilename('fullpath');
+    repo_root = fileparts(fileparts(fileparts(this_file)));
+    repo_root_escaped = strrep(repo_root, '''', '''''');
+    evalin('base', sprintf([ ...
+        'orig_dir = pwd; ' ...
+        'cleanup_obj = onCleanup(@() cd(orig_dir)); ' ...
+        'cd(''%s''); ' ...
+        'run(''Full_Sim_Init.m'');'], repo_root_escaped));
     result.notes{end+1} = 'Ran Full_Sim_Init.m to populate workspace variables.';
 end
 

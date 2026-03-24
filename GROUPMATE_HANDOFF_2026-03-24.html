@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>eVTOL Project Handoff - March 24, 2026</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Georgia, serif;
+      max-width: 920px;
+      margin: 28px auto;
+      color: #111;
+      line-height: 1.35;
+      font-size: 12pt;
+    }
+    h1, h2 {
+      margin-bottom: 0.3em;
+    }
+    h1 {
+      font-size: 20pt;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 13pt;
+      margin-top: 1.1em;
+    }
+    p {
+      margin: 0.45em 0;
+    }
+    ul {
+      margin: 0.35em 0 0.7em 1.2em;
+    }
+    li {
+      margin: 0.2em 0;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.95em;
+    }
+    .box {
+      border: 1px solid #666;
+      padding: 10px 12px;
+      background: #fafafa;
+      margin: 0.7em 0 1em 0;
+    }
+    .small {
+      font-size: 10.5pt;
+    }
+  </style>
+</head>
+<body>
+  <h1>eVTOL Project Handoff</h1>
+  <p><strong>Date:</strong> March 24, 2026</p>
+  <p>
+    This file is meant to get the group up to speed quickly on the current state of the
+    multi-rotor eVTOL flight-simulation project and on what changed for Progress Report 2.
+    The report itself should live in <code>docs/Brown Progress Report 2.pdf</code> once saved.
+  </p>
+
+  <h2>What Was Completed in This Update</h2>
+  <ul>
+    <li>The aircraft setup was cleaned up so the aircraft definition and scenario setup are now separated into <code>aircraft_def.m</code>, <code>scenario_def.m</code>, and <code>Full_Sim_Init.m</code>.</li>
+    <li>The vehicle geometry was updated to a more defensible Archer Midnight-like lift+cruise layout with two wing halves, a V-tail, six front tilting rotors, and six rear fixed rotors.</li>
+    <li>The mass properties and aerodynamic coefficients were updated using NASA lift+cruise reference material instead of earlier placeholder values.</li>
+    <li>Control surfaces were added in the aircraft definition and visualization: one flaperon per wing half and one ruddervator per V-tail half.</li>
+    <li>The rendering tool was improved so it shows rotor thrust vectors, aerodynamic surface normals, and control-surface normals. This was used to verify geometry and sign conventions during development.</li>
+    <li>A simple PD-controller scaffold was added to the Simulink model so there is now a closed-loop path from vehicle states to aerodynamic control commands and rotor commands, but it is still not tuned.</li>
+    <li>Transition metrics were narrowed to transition time and RMS jerk so later controller comparisons can be made on a consistent basis.</li>
+  </ul>
+
+  <h2>Key Files to Know</h2>
+  <ul>
+    <li><code>Full_Sim_Init.m</code>: main setup script used to initialize the simulation workspace.</li>
+    <li><code>aircraft_def.m</code>: aircraft geometry, masses, inertia, aerodynamic coefficients, propulsion layout, and control-surface metadata.</li>
+    <li><code>scenario_def.m</code>: initial conditions, commands, and scenario-level setup.</li>
+    <li><code>render_aircraft.m</code>: 3D render used to verify aircraft geometry, thrust directions, rotor tilt, and control-surface deflections.</li>
+    <li><code>Brown_Full_Sim.slx</code>: main simulation model.</li>
+    <li><code>TESTER_external_forces_updated.mlx</code>: updated validation/test live script.</li>
+    <li><code>docs/AME532_Progress_Report_Draft_1_BrownStyle_2026-03-24_revised.html</code>: shortened report draft used as the basis for Progress Report 2.</li>
+  </ul>
+
+  <h2>Important Current Numbers</h2>
+  <ul>
+    <li>Total modeled mass: <strong>3040 kg</strong></li>
+    <li>Center of gravity: <strong>[0.0002, 0.0000, -0.2089] m</strong></li>
+    <li>Inertia: <strong>Jxx = 2.184e4, Jyy = 1.418e4, Jzz = 3.474e4, Jxz = -5.03e2 kg·m<sup>2</sup></strong></li>
+    <li>Wing lift-curve slope: <strong>CLa = 4.7671 / rad</strong></li>
+    <li>Tail lift-curve slope: <strong>CLa = 2.2028 / rad</strong></li>
+    <li>Trim fallback estimate at 70 m/s and 90 deg front tilt: <strong>front = 1063.6 rpm, rear = 6435.8 rpm</strong></li>
+    <li>Example metrics run: <strong>transition_time_s = 9.60</strong>, <strong>jerk_rms = 1.155 m/s<sup>3</sup></strong></li>
+  </ul>
+
+  <h2>What Has Been Verified</h2>
+  <ul>
+    <li><code>Full_Sim_Init.m</code> runs successfully.</li>
+    <li><code>Brown_Full_Sim.slx</code> updates and simulates successfully in its current baseline configuration.</li>
+    <li>The updated tester workflow runs using the current aircraft values.</li>
+    <li>The trim helper runs and returns usable first-pass actuator estimates.</li>
+    <li>The example transition-metrics script runs and outputs the selected metrics.</li>
+    <li>The render script correctly shows hover, transition, and cruise rotor tilt, plus flap and ruddervator deflections.</li>
+  </ul>
+
+  <h2>What Is Not Done Yet</h2>
+  <ul>
+    <li>The PD controller is only a scaffold right now. It executes, but it is not tuned and should not be presented as a finished controller.</li>
+    <li>The current trim result is a first-pass estimate, not a fully converged 6-DoF trim solution.</li>
+    <li>The next major technical step is closed-loop controller tuning and then running controlled transition cases with the selected metrics.</li>
+  </ul>
+
+  <h2>Commands the Group Can Run</h2>
+  <div class="box">
+    <p><strong>Initialize the project:</strong></p>
+    <p><code>run('Full_Sim_Init.m')</code></p>
+
+    <p><strong>Render a transition case with all aerodynamic surfaces visibly deflected down:</strong></p>
+    <p><code>render_aircraft('transition', 45, 'delta_f_deg', 15, 'delta_e_deg', 15)</code></p>
+
+    <p><strong>Run the updated validation live script:</strong></p>
+    <p><code>run('TESTER_external_forces_updated.mlx')</code></p>
+
+    <p><strong>Run the example transition metrics:</strong></p>
+    <p><code>run('scripts/metrics/example_metrics_run.m')</code></p>
+
+    <p><strong>Run the trim check:</strong></p>
+    <p><code>run('scripts/trim/run_trim_check.m')</code></p>
+  </div>
+
+  <h2>What to Say in the Report</h2>
+  <p>
+    The cleanest summary is that the project moved from a placeholder VTOL model toward a more defensible aircraft-specific simulation. The aircraft properties were updated using NASA lift+cruise references, control surfaces were added to the geometry and model structure, a simple PD-controller scaffold was integrated, and transition metrics were selected so later controller work can be evaluated consistently. The most important thing to keep honest is that controller tuning and successful controlled transition are still future work.
+  </p>
+
+  <h2>Supporting Docs</h2>
+  <ul>
+    <li><code>docs/AERO_MASS_RESEARCH_2026-03-23.md</code>: basis for updated mass and aerodynamic properties.</li>
+    <li><code>docs/CONTROL_SURFACE_RESEARCH_2026-03-23.md</code>: basis for ruddervator and flaperon assumptions.</li>
+    <li><code>docs/TRANSITION_metrics_review.md</code>: rationale for transition-time and RMS-jerk metrics.</li>
+    <li><code>docs/TRIM_results.md</code>: notes on current trim workflow status.</li>
+    <li><code>docs/tables/proposal_status_2026-03-24.csv</code> and <code>docs/tables/aircraft_properties_2026-03-24.csv</code>: copy-friendly tables for the report.</li>
+  </ul>
+
+  <h2>Reference Basis</h2>
+  <p class="small">
+    Whiteside, S. K. S., Pollard, B. P., Antcliff, K. R., Zawodny, N. S., Fei, X., Silva, C., and Medina, G. L., <em>Design of a Tiltwing Concept Vehicle for Urban Air Mobility</em>, NASA Technical Memorandum NASA/TM-20210017971, June 2021.
+  </p>
+</body>
+</html>

@@ -50,6 +50,10 @@ Mass = aircraft.Mass;
 CG = aircraft.CG;
 J = aircraft.J;
 
+% Legacy aliases kept for existing Simulink block parameters.
+m = Mass;
+I = J;
+
 wing = aircraft.wing;
 wingL = aircraft.wingL;
 wingR = aircraft.wingR;
@@ -80,6 +84,10 @@ Motor_RPMs = scenario.Motor_RPMs;
 Tilt_angles = scenario.Tilt_angles;
 Fext_B = scenario.Fext_B;
 Mext_B = scenario.Mext_B;
+
+% Controller scaffold variables used by the optional Simulink PD block.
+controller_enable = false;
+controller_base_rpm = mean(Motor_RPMs(:));
 
 %% =========================================================================
 %% 2. 3D VISUALIZATION

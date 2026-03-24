@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VTOL Flight Transition Simulation Progress Report</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Georgia, serif;
+      max-width: 850px;
+      margin: 32px auto;
+      color: #111;
+      line-height: 1.35;
+      font-size: 12pt;
+    }
+    h1, h2 {
+      font-weight: 700;
+      margin-bottom: 0.3em;
+    }
+    h1 {
+      font-size: 18pt;
+      text-align: center;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 13pt;
+      margin-top: 1.1em;
+    }
+    p {
+      margin: 0.45em 0;
+      text-align: justify;
+    }
+    .meta {
+      text-align: center;
+      margin-bottom: 1.2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.6em 0 0.9em 0;
+      font-size: 11pt;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    th {
+      text-align: left;
+      background: #f2f2f2;
+    }
+    .figure {
+      border: 1px solid #666;
+      padding: 10px 12px;
+      margin: 0.8em 0 1em 0;
+      font-style: italic;
+      background: #fafafa;
+    }
+    .refs {
+      font-size: 10.5pt;
+    }
+  </style>
+</head>
+<body>
+  <h1>VTOL Flight Transition Simulation Progress Report</h1>
+  <div class="meta">
+    Zacharias Brown<br>
+    AME 532<br>
+    March 24, 2026
+  </div>
+
+  <h2>1. Project Scope Update</h2>
+  <p>
+    The original proposal had three main goals: build a 6-DoF simulation of a modern VTOL aircraft, create scenarios for analyzing the hover-to-cruise transition, and create a framework for comparing different control methods in the transition region. During this reporting period, the project became much more focused. Instead of using a generic VTOL concept with placeholder properties, the model is now based on an Archer Midnight-like lift+cruise configuration with updated geometry, mass properties, aerodynamic coefficients, rotor layout, and control surfaces. The comparison framework is still under development, but the trim workflow, transition metrics, and controller scaffold are now in place.
+  </p>
+
+  <table>
+    <tr>
+      <th>Original project specification</th>
+      <th>Current update</th>
+    </tr>
+    <tr>
+      <td>Produce an accurate 6-DoF VTOL simulation using a contemporary aircraft design.</td>
+      <td>A running Simulink model now exists for a lift+cruise eVTOL based on an Archer Midnight-like configuration, with updated aircraft geometry, mass properties, and aerodynamic coefficients.</td>
+    </tr>
+    <tr>
+      <td>Create scenarios that allow the transition region to be analyzed and evaluated.</td>
+      <td>Scenario initialization has been separated into <code>scenario_def.m</code>, and the validation suite now includes aircraft-scaled cruise and force-response cases.</td>
+    </tr>
+    <tr>
+      <td>Create a framework for comparing transition-control methods or configurations.</td>
+      <td>A transition-metrics script, trim workflow, and simple PD controller scaffold are now integrated, although the controller is still untuned.</td>
+    </tr>
+  </table>
+
+  <h2>2. Aircraft Model and Property Update</h2>
+  <p>
+    The largest milestone in this period was replacing the original placeholder aircraft setup with a more defensible aircraft definition. The current model includes a fuselage, two half-wings, a V-tail, six front tilting rotors, and six rear fixed rotors. The initialization workflow was also cleaned up by separating the aircraft definition from the scenario definition, which makes the model easier to modify and test. In parallel, the aerodynamic and mass properties were updated using NASA lift+cruise reference-vehicle data as a much better first-pass basis than the original hobby-aircraft-style values. The main reference used for that update was NASA/TM-20210017971.
+  </p>
+
+  <div class="figure">
+    Insert Figure 1 here: rendered aircraft showing the current vehicle configuration, control surfaces, thrust vectors, and selected surface normal vectors.
+  </div>
+
+  <table>
+    <tr>
+      <th>Aircraft property</th>
+      <th>Current value</th>
+    </tr>
+    <tr>
+      <td>Total modeled mass</td>
+      <td>3040 kg</td>
+    </tr>
+    <tr>
+      <td>CG</td>
+      <td>[0.0002, 0.0000, -0.2089] m</td>
+    </tr>
+    <tr>
+      <td>Inertia</td>
+      <td>Jxx = 2.184e4, Jyy = 1.418e4, Jzz = 3.474e4, Jxz = -5.03e2 kg·m²</td>
+    </tr>
+    <tr>
+      <td>Wing geometry</td>
+      <td>Two half-wings, each 1.50 × 6.25 × 0.20 m</td>
+    </tr>
+    <tr>
+      <td>Total wing area</td>
+      <td>18.75 m²</td>
+    </tr>
+    <tr>
+      <td>Tail geometry</td>
+      <td>Two V-tail halves, each 1.40 × 2.00 × 0.08 m at ±45 deg</td>
+    </tr>
+    <tr>
+      <td>Rotor layout</td>
+      <td>12 total rotors: 6 front tilting, 6 rear fixed</td>
+    </tr>
+    <tr>
+      <td>Wing CLa</td>
+      <td>4.7671 / rad</td>
+    </tr>
+    <tr>
+      <td>Tail CLa</td>
+      <td>2.2028 / rad</td>
+    </tr>
+  </table>
+
+  <h2>3. Control Surfaces and Model Updates</h2>
+  <p>
+    The aircraft now includes simplified aerodynamic control surfaces: one ruddervator on each V-tail half and one flaperon on each wing half. This is a deliberate simplification of the likely segmented Archer control layout, but it keeps the model manageable while still giving the simulation realistic aerodynamic control effectors in forward flight. The rendered model was used during development to verify hinge placement, sign convention, rotor tilt geometry, and control-surface orientation. In other words, the visualization is useful because it shows the geometry that was added to the model, not because visualization itself is a project milestone.
+  </p>
+
+  <p>
+    The aerodynamic surface blocks were also updated to accept local control-deflection inputs, so the model now has a direct path from control commands to aerodynamic force and moment changes on each wing half and each V-tail half. The first-pass ruddervator estimates currently used in the repo give approximately CM<sub>&delta;e</sub> = -0.487 / rad and CN<sub>&delta;r</sub> = +0.059 / rad.
+  </p>
+
+  <h2>4. Controller, Trim, and Validation Progress</h2>
+  <p>
+    A simple PD controller scaffold has now been integrated into <code>Brown_Full_Sim.slx</code>. The current block reads Euler angles and body rates and produces local flaperon commands, local ruddervator commands, and a motor RPM vector. This should be described as control scaffolding rather than a finished control law. The purpose of this update was to create the closed-loop path in the model and verify that the controller block can execute. It does that successfully, but it is not yet tuned to hold a trimmed condition or perform a controlled transition.
+  </p>
+
+  <p>
+    The trim workflow also improved during this period. The trim helper now runs from the repo correctly and returns first-pass actuator estimates. For a 70 m/s cruise target with 90 deg front-rotor tilt, the current fallback estimate is 1063.6 rpm for the front rotors to cover cruise drag and 6435.8 rpm for the rear rotors to support full weight. These values are useful starting points for later operating-point work, but they are not yet a fully converged 6-DoF trim solution.
+  </p>
+
+  <p>
+    The validation suite was updated so that the case values now make sense for the current aircraft instead of older placeholder conditions. The main smoke test passes, the full Simulink model compiles and runs, and the updated tester cases now execute at plausible cruise-like conditions. That means the plant model, aircraft definition, and validation workflow are now aligned much better than they were in the original proposal state.
+  </p>
+
+  <h2>5. Transition Metrics and Next Steps</h2>
+  <p>
+    The most important progress on the evaluation side was deciding on the transition metrics that should be used going forward. The two metrics selected for the current stage are <code>transition_time_s</code> and <code>jerk_rms</code>. Transition time was chosen because it is the clearest mission-level measure of whether the maneuver is practical. Jerk RMS was chosen because it captures how aggressive or uncomfortable the maneuver is and gives a useful smoothness measure without requiring a fully developed electrical power model. Other quantities such as energy proxy and control smoothness are still useful, but they are secondary at this stage because propulsion scaling and actuator modeling are still being refined.
+  </p>
+
+  <p>
+    The next control step is not to replace this with a large monolithic controller, but to tune the current inner-loop PD scaffold around realistic operating points and then use the trim estimates as initial actuator guesses. After that, the transition cases can be run with the selected metrics and compared in a consistent way. So the most accurate summary of the current project state is that the plant model, aircraft definition, and evaluation framework have advanced substantially, and the project is now ready for controller tuning and transition-performance work, but it is not yet at the stage of a successful controlled transition.
+  </p>
+
+  <p class="refs">
+    Reference basis for aerodynamic-property update: <a href="https://sacd.larc.nasa.gov/wp-content/uploads/sites/167/2022/02/NASA-TM-20210017971.pdf">NASA/TM-20210017971</a>. Additional control-surface background used in the repo: <a href="https://patents.google.com/patent/US20240400200A1/en">Archer patent US20240400200A1</a>.
+  </p>
+</body>
+</html>

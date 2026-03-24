@@ -1,0 +1,4 @@
+Original project specification,Current update
+Produce an accurate 6-DoF VTOL simulation using a contemporary aircraft design.,"A running Simulink model now exists for a lift+cruise eVTOL based on an Archer Midnight-like configuration, with updated aircraft geometry, mass properties, and aerodynamic coefficients."
+Create scenarios that allow the transition region to be analyzed and evaluated.,"Scenario initialization has been separated into scenario_def.m, and the validation suite now includes aircraft-scaled cruise and force-response cases."
+Create a framework for comparing transition-control methods or configurations.,"A transition-metrics script, trim workflow, and simple PD controller scaffold are now integrated, although the controller is still untuned."

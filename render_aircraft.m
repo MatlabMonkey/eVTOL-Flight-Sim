@@ -66,6 +66,7 @@ p.addParameter('show_labels', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_input_markers', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('normal_scale', 1.4, @isnumeric);
 p.addParameter('thrust_scale', 1.1, @isnumeric);
+p.addParameter('label_font_scale', 0.72, @isnumeric);
 p.addParameter('title_text', '', @(x) ischar(x) || isstring(x));
 p.parse(varargin{4:end});
 opts = p.Results;
@@ -79,6 +80,7 @@ standoff_length = hub_offset;
 standoff_offset = 0.5 * standoff_length;
 frontSpecs = localFrontRotorSpecs(opts.prop, opts.thrust_tilt_deg, tilt_angle);
 rearSpecs = localRearRotorSpecs(opts.prop);
+label_sizes = localLabelFontSizes(opts.label_font_scale);
 
 hFig = figure('Name', 'VTOL Aircraft Render', ...
     'Color', [0.1 0.1 0.1], ...
@@ -151,7 +153,7 @@ for i = 1:N
             label_pos = mean(V_ctrl_trans, 1);
             text(label_pos(1), label_pos(2), label_pos(3), ...
                 sprintf(' %s flap %.1f deg', localShortWingName(name), rad2deg(deflection_rad)), ...
-                'Color', [0.90 1.00 0.65], 'FontSize', 9, 'FontWeight', 'bold');
+                'Color', [0.90 1.00 0.65], 'FontSize', label_sizes.control, 'FontWeight', 'bold');
         end
         continue;
     end
@@ -175,7 +177,7 @@ for i = 1:N
             label_pos = mean(V_ctrl_trans, 1);
             text(label_pos(1), label_pos(2), label_pos(3), ...
                 sprintf(' %s rv %.1f deg', localShortTailName(name), rad2deg(deflection_rad)), ...
-                'Color', [1.0 1.0 0.6], 'FontSize', 9, 'FontWeight', 'bold');
+                'Color', [1.0 1.0 0.6], 'FontSize', label_sizes.control, 'FontWeight', 'bold');
         end
         continue;
     end
@@ -207,7 +209,7 @@ hCG = plot3(CG(1), CG(2), CG(3), 'wp', ...
 legend_handles(end + 1) = hCG; %#ok<AGROW>
 legend_labels{end + 1} = 'Center of Gravity'; %#ok<AGROW>
 text(CG(1), CG(2), CG(3) - 0.6, '  CG', ...
-    'FontWeight', 'bold', 'FontSize', 12, 'Color', 'w');
+    'FontWeight', 'bold', 'FontSize', label_sizes.cg, 'Color', 'w');
 
 if opts.show_input_markers
     [hAeroInput, hPropInput] = localPlotInputMarkers(surfaces, opts.prop);
@@ -222,10 +224,10 @@ if opts.show_input_markers
 end
 
 if opts.show_vectors
-    hAeroNormal = localPlotSurfaceNormals(surfaces, opts.normal_scale, opts.show_labels);
-    hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels);
+    hAeroNormal = localPlotSurfaceNormals(surfaces, opts.normal_scale, opts.show_labels, label_sizes);
+    hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels, label_sizes);
     [hFrontThrust, hRearThrust] = localPlotThrustVectors( ...
-        frontSpecs, rearSpecs, opts.thrust_scale, opts.show_labels);
+        frontSpecs, rearSpecs, opts.thrust_scale, opts.show_labels, label_sizes);
     localPrintVectorSummary(surfaces, frontSpecs, rearSpecs);
     localPrintControlSummary(ruddervator_state, flaperon_state, control_surface_specs);
     if ~isempty(hControlNormal) && isgraphics(hControlNormal)
@@ -592,7 +594,7 @@ for idx = 1:numel(prop_fields)
 end
 end
 
-function hFirst = localPlotSurfaceNormals(surfaces, scale, show_labels)
+function hFirst = localPlotSurfaceNormals(surfaces, scale, show_labels, label_sizes)
 hFirst = [];
 for idx = 1:numel(surfaces)
     surf = surfaces(idx);
@@ -609,13 +611,13 @@ for idx = 1:numel(surfaces)
         label_pos = surf.pos(:)' + (scale + 0.15) * dir_vec;
         text(label_pos(1), label_pos(2), label_pos(3), ...
             sprintf(' %s n', surf_name), ...
-            'Color', [1.0 0.8 1.0], 'FontWeight', 'bold', 'FontSize', 10);
+            'Color', [1.0 0.8 1.0], 'FontWeight', 'bold', 'FontSize', label_sizes.aero);
     end
 end
 end
 
 function [hFrontFirst, hRearFirst] = ...
-    localPlotThrustVectors(frontSpecs, rearSpecs, scale, show_labels)
+    localPlotThrustVectors(frontSpecs, rearSpecs, scale, show_labels, label_sizes)
 hFrontFirst = [];
 hRearFirst = [];
 for idx = 1:numel(frontSpecs)
@@ -631,7 +633,7 @@ for idx = 1:numel(frontSpecs)
         label_pos = spec.hub + (scale + 0.1) * spec.dir;
         text(label_pos(1), label_pos(2), label_pos(3), ...
             sprintf(' %s thrust', spec.name), ...
-            'Color', [1.0 0.9 0.4], 'FontSize', 9);
+            'Color', [1.0 0.9 0.4], 'FontSize', label_sizes.thrust);
     end
 end
 
@@ -648,12 +650,12 @@ for idx = 1:numel(rearSpecs)
         label_pos = spec.hub + (scale + 0.1) * spec.dir;
         text(label_pos(1), label_pos(2), label_pos(3), ...
             sprintf(' %s thrust', spec.name), ...
-            'Color', [0.6 1.0 1.0], 'FontSize', 9);
+            'Color', [0.6 1.0 1.0], 'FontSize', label_sizes.thrust);
     end
 end
 end
 
-function hFirst = localPlotControlSurfaceNormals(specs, scale, show_labels)
+function hFirst = localPlotControlSurfaceNormals(specs, scale, show_labels, label_sizes)
 hFirst = [];
 for idx = 1:numel(specs)
     spec = specs(idx);
@@ -668,9 +670,18 @@ for idx = 1:numel(specs)
         label_pos = spec.pos + (scale + 0.1) * spec.dir;
         text(label_pos(1), label_pos(2), label_pos(3), ...
             sprintf(' %s n', spec.name), ...
-            'Color', [1.0 1.0 0.6], 'FontSize', 9, 'FontWeight', 'bold');
+            'Color', [1.0 1.0 0.6], 'FontSize', label_sizes.control, 'FontWeight', 'bold');
     end
 end
+end
+
+function label_sizes = localLabelFontSizes(scale)
+scale = max(0.45, scale);
+label_sizes = struct( ...
+    'cg', max(8, 12 * scale), ...
+    'aero', max(6, 10 * scale), ...
+    'thrust', max(6, 9 * scale), ...
+    'control', max(6, 9 * scale));
 end
 
 function localPrintVectorSummary(surfaces, frontSpecs, rearSpecs)

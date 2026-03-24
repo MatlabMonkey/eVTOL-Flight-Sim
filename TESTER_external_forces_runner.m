@@ -290,7 +290,7 @@ assignin('base', 'aeroData', aircraft.aeroData);
 assignin('base', 'flight_mode', case_flight_mode);
 assignin('base', 'structural_tilt_angle', aircraft.tilt_angle);
 assignin('base', 'tilt_angle', case_tilt_deg);
-assignin('base', 'g', g_vec);
+assignin('base', 'g', case_def.g);
 assignin('base', 'pos_init', case_def.pos_init);
 assignin('base', 'V_init', case_def.V_init);
 assignin('base', 'eul_init', deg2rad(case_def.eul_init_deg(:)));
@@ -299,6 +299,8 @@ assignin('base', 'Fext_B', case_def.Fext_B);
 assignin('base', 'Mext_B', case_def.Mext_B);
 assignin('base', 'Motor_RPMs', case_def.Motor_RPMs);
 assignin('base', 'Tilt_angles', case_def.Tilt_angles);
+assignin('base', 'controller_enable', false);
+assignin('base', 'controller_base_rpm', mean(case_def.Motor_RPMs(:)));
 
 out = sim(case_def.model, ...
     'StopTime', num2str(case_def.t_stop), ...

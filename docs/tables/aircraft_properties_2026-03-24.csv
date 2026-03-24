@@ -1,0 +1,10 @@
+Aircraft property,Current value
+Total modeled mass,3040 kg
+CG,"[0.0002, 0.0000, -0.2089] m"
+Inertia,"Jxx = 2.184e4, Jyy = 1.418e4, Jzz = 3.474e4, Jxz = -5.03e2 kg·m²"
+Wing geometry,"Two half-wings, each 1.50 x 6.25 x 0.20 m"
+Total wing area,18.75 m²
+Tail geometry,"Two V-tail halves, each 1.40 x 2.00 x 0.08 m at ±45 deg"
+Rotor layout,"12 total rotors: 6 front tilting, 6 rear fixed"
+Wing CLa,4.7671 / rad
+Tail CLa,2.2028 / rad
