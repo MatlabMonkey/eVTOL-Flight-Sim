@@ -1,0 +1,4 @@
+case_name,speed_mps,bank_deg,state_count,input_count,output_count,max_real_eig,min_real_eig
+level_70,70,0,13,24,33,5.42101086242752e-20,-3.05069051617646e-11
+level_85,85,0,13,24,33,2.71050543121376e-19,-2.52265808069196e-12
+bank_5deg_70,70,5,13,24,33,0.017974418563202,-0.013973842906079

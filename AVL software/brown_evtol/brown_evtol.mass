@@ -1,0 +1,18 @@
+#
+# Brown eVTOL simplified fixed-aero AVL mass file
+# Derived from current aircraft_def.m mass properties
+#
+# AVL coordinates:
+#   x back
+#   y right
+#   z up
+#
+Lunit = 1.0 m
+Munit = 1.0 kg
+Tunit = 1.0 s
+
+g   = 9.81
+rho = 1.225
+
+# mass      x         y        z        Ixx       Iyy       Izz      Ixy    Ixz      Iyz
+3040.0     -0.0002   0.0000   0.2089   2.184e4   1.418e4   3.474e4  0.0   -5.03e2   0.0

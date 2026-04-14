@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Homework 7 Trim and Linmod Summary</title>
+  <style>
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      margin: 2rem auto;
+      max-width: 900px;
+      line-height: 1.45;
+      color: #111;
+    }
+    h1, h2 { margin-bottom: 0.4rem; }
+    p, li { font-size: 15px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 0.45rem 0.55rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f1f1; }
+    code {
+      background: #f6f6f6;
+      padding: 0.08rem 0.28rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Homework 7 Trim and Linmod Summary</h1>
+  <p><strong>Date:</strong> March 31, 2026</p>
+
+  <h2>What Was Causing the Original Trim Failure</h2>
+  <p>
+    The aircraft did not fail to trim because a steady flight condition did not exist. A grouped-input analytical
+    search showed clean steady solutions at 70 m/s, 85 m/s, and 70 m/s with 5 degrees of bank. The failure came
+    from applying <code>trim()</code> directly to the full quaternion-based plant. In that formulation, the solver had too
+    much freedom in the full state vector, including the quaternion states, and it repeatedly drifted into
+    non-physical attitudes and non-unit quaternion values. Earlier in the process, the raw 12-motor input vector
+    was also over-parameterized for a symmetric cruise trim problem.
+  </p>
+
+  <h2>What Was Changed</h2>
+  <p>
+    A dedicated grouped-input trim helper model was added so that <code>trim()</code> solves only for the physically meaningful
+    trim variables: angle of attack, grouped front and rear collective RPM, and the aerodynamic control inputs. The
+    helper evaluates the same current aircraft force and moment equations used by the simulation framework, but it
+    avoids the ill-conditioned full-state quaternion search. After the helper finds the operating point, that point is
+    mapped back onto <code>Brown_6DOF_Plant.slx</code> and the actual aircraft plant is linearized with <code>linmod()</code>.
+  </p>
+
+  <h2>Final Trim Results Using <code>trim()</code></h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>Converged</th>
+        <th>Max Residual</th>
+        <th>&alpha; (deg)</th>
+        <th>&delta;<sub>e</sub> (deg)</th>
+        <th>&delta;<sub>a</sub> (deg)</th>
+        <th>&delta;<sub>r</sub> (deg)</th>
+        <th>Front Collective (RPM)</th>
+        <th>Rear Collective (RPM)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>70 m/s, bank = 0 deg</td>
+        <td>Yes</td>
+        <td>7.48e-16</td>
+        <td>2.6325</td>
+        <td>-15.0603</td>
+        <td>0</td>
+        <td>0</td>
+        <td>1181.43</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>85 m/s, bank = 0 deg</td>
+        <td>Yes</td>
+        <td>1.78e-14</td>
+        <td>0.2177</td>
+        <td>-2.7370</td>
+        <td>0</td>
+        <td>0</td>
+        <td>1307.18</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>70 m/s, bank = 5 deg</td>
+        <td>Yes</td>
+        <td>5.33e-05</td>
+        <td>2.6039</td>
+        <td>-14.9130</td>
+        <td>-0.0128</td>
+        <td>0.0557</td>
+        <td>1182.53</td>
+        <td>0.0063</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    The 5 degree bank case is slightly noisier numerically than the level-flight cases, but its normalized residual is
+    still small and the operating point is physically consistent. The trimmed yaw rate in that case is a small positive
+    steady-turn rate, as expected for coordinated banked flight.
+  </p>
+
+  <h2>Final Linearization Results Using <code>linmod()</code></h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>State Count</th>
+        <th>Input Count</th>
+        <th>Output Count</th>
+        <th>Max Real Eigenvalue</th>
+        <th>Min Real Eigenvalue</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>70 m/s, bank = 0 deg</td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>1.57e-28</td>
+        <td>-3.05e-11</td>
+      </tr>
+      <tr>
+        <td>85 m/s, bank = 0 deg</td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>0</td>
+        <td>-2.52e-12</td>
+      </tr>
+      <tr>
+        <td>70 m/s, bank = 5 deg</td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>1.80e-02</td>
+        <td>-1.40e-02</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Files to Use</h2>
+  <ul>
+    <li><code>scripts/trim/homework7_trim_cases.m</code>: final homework trim workflow using <code>trim()</code></li>
+    <li><code>scripts/control/homework7_linmod_trim_cases.m</code>: final homework linearization workflow using <code>linmod()</code></li>
+    <li><code>scripts/simulink/build_homework7_trim_helper.m</code>: builds the grouped-input trim helper model</li>
+    <li><code>scripts/trim/trim_residual_eval.m</code>: grouped residual evaluator used by the helper</li>
+    <li><code>docs/homework7_trim/homework7_trim_summary.csv</code>: trim result table</li>
+    <li><code>docs/homework7_trim/homework7_linmod_summary.csv</code>: linearization summary table</li>
+    <li><code>docs/homework7_trim/homework7_linmod_eigs.csv</code>: eigenvalue export</li>
+  </ul>
+
+  <h2>How to Reproduce</h2>
+  <p>From the repository root in MATLAB:</p>
+  <pre><code>addpath(genpath(fullfile(pwd,'scripts')));
+results = homework7_trim_cases;
+linResults = homework7_linmod_trim_cases;</code></pre>
+
+  <p>
+    This sequence rebuilds the trim helper, runs the three homework trim cases using <code>trim()</code>, saves the trimmed
+    operating points, and then linearizes <code>Brown_6DOF_Plant</code> at those same conditions using <code>linmod()</code>.
+  </p>
+</body>
+</html>

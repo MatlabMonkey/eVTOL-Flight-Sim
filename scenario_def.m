@@ -30,14 +30,14 @@ switch char(test_case)
         V_init = [13; 0; 0.25];
         eul_init = [0; 0; 0];
         omega_init = [0; 0; 0];
-        g = -9.81;
+        g = 9.81;
 
     case 'Stable_6DOF'
         pos_init = [0; 0; -1000];
         V_init = [13; 0.25; 0.25];
         eul_init = [5; 5; 0] * (pi / 180);
         omega_init = [0.005; 0.5; 0.005];
-        g = -9.81;
+        g = 9.81;
 
         Motor_RPMs(:) = 1500;
         Tilt_angles(:) = 90;

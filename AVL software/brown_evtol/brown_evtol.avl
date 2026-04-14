@@ -1,0 +1,70 @@
+Brown eVTOL simplified fixed-aero model
+# Mach
+0.0
+# IYsym   IZsym   Zsym
+0        0       0.0
+# Sref    Cref    Bref
+18.75    1.50    12.50
+# Xref    Yref    Zref
+-0.0002  0.0     0.2089
+
+# Simplified AVL geometry derived from aircraft_def.m
+# Mapping from sim to AVL:
+#   x_avl = -x_sim
+#   y_avl =  y_sim
+#   z_avl = -z_sim
+# Rotors, booms, and fuselage are intentionally omitted in this v1 model.
+
+SURFACE
+Wing
+# Nchord   Cspace   Nspan   Sspace
+12         1.0      20      1.0
+YDUPLICATE
+0.0
+
+SECTION
+# Xle      Yle      Zle      Chord    Ainc    Nspan   Sspace
+-0.25      0.625    0.60     1.50     0.0     10      1.0
+NACA
+2412
+CONTROL
+flap       1.0      0.72     0.0      0.0     0.0     1.0
+CONTROL
+aileron   -1.0      0.72     0.0      0.0     0.0    -1.0
+
+SECTION
+# Xle      Yle      Zle      Chord    Ainc    Nspan   Sspace
+-0.25      6.875    0.60     1.50     0.0      0      1.0
+NACA
+2412
+CONTROL
+flap       1.0      0.72     0.0      0.0     0.0     1.0
+CONTROL
+aileron   -1.0      0.72     0.0      0.0     0.0    -1.0
+
+SURFACE
+VTail
+# Nchord   Cspace   Nspan   Sspace
+10         1.0      12      1.0
+YDUPLICATE
+0.0
+
+SECTION
+# Xle      Yle        Zle        Chord   Ainc    Nspan   Sspace
+ 2.80      0.0000     0.2029     1.40    0.0       6     1.0
+NACA
+0012
+CONTROL
+elevator   1.0        0.70       0.0     0.0     0.0     1.0
+CONTROL
+rudder     1.0        0.70       0.0     0.0     0.0    -1.0
+
+SECTION
+# Xle      Yle        Zle        Chord   Ainc    Nspan   Sspace
+ 2.80      1.4171     1.6171     1.40    0.0       0     1.0
+NACA
+0012
+CONTROL
+elevator   1.0        0.70       0.0     0.0     0.0     1.0
+CONTROL
+rudder     1.0        0.70       0.0     0.0     0.0    -1.0

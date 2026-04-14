@@ -1,0 +1,21 @@
+load brown_evtol
+mass brown_evtol.mass
+mset 1
+oper
+c1
+b 15.0
+v 70.0
+m 3040.0
+d 1.225
+g 9.81
+x -0.0002
+y 0.0
+z 0.2089
+
+b b 0
+d2 rm 0
+d3 pm 0
+d4 ym 0
+x
+
+quit

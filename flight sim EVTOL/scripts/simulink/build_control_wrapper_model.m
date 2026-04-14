@@ -1,0 +1,16 @@
+function build_control_wrapper_model(varargin)
+%BUILD_CONTROL_WRAPPER_MODEL Build Brown_Control_Sim around Brown_6DOF_Plant.
+
+p = inputParser;
+p.addParameter('OuterModel', 'Brown_Control_Sim', @(s) ischar(s) || isstring(s));
+p.addParameter('PlantModel', 'Brown_6DOF_Plant', @(s) ischar(s) || isstring(s));
+p.addParameter('RebuildPlant', false, @(x) islogical(x) || isnumeric(x));
+p.parse(varargin{:});
+
+build_model_reference_architecture( ...
+    'OuterModel', char(p.Results.OuterModel), ...
+    'PlantModel', char(p.Results.PlantModel), ...
+    'PlantSourceModel', 'Brown_Full_Sim', ...
+    'PlantSourceRef', '599cfc2', ...
+    'RebuildPlant', logical(p.Results.RebuildPlant));
+end

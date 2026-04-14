@@ -1,0 +1,4 @@
+case_name,speed_mps,bank_deg,converged_trim,state_count,input_count,output_count,max_real_eig,min_real_eig
+level_70,70,0,1,13,24,33,1.57269035428376e-28,-3.05078562239103e-11
+level_85,85,0,1,13,24,33,0,-2.52252187779405e-12
+bank_5deg_70,70,5,1,13,24,33,0.0179745152495547,-0.0139742109336831

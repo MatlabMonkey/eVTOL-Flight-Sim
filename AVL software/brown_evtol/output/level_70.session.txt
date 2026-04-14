@@ -1,0 +1,10 @@
+load brown_evtol
+oper
+a c 0.529955185339442
+b b 0
+d2 rm 0
+d3 pm 0
+d4 ym 0
+x
+
+quit

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Brown eVTOL AVL Homework Study</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Georgia, serif;
+      max-width: 980px;
+      margin: 28px auto;
+      color: #111;
+      line-height: 1.35;
+      font-size: 12pt;
+    }
+    h1, h2 {
+      margin-bottom: 0.3em;
+    }
+    h1 {
+      text-align: center;
+      margin-top: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.6em 0 1em 0;
+      font-size: 11pt;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #f2f2f2;
+      text-align: left;
+    }
+    pre {
+      background: #fafafa;
+      border: 1px solid #ccc;
+      padding: 10px 12px;
+      overflow-x: auto;
+      font-size: 10pt;
+    }
+    img {
+      width: 100%;
+      border: 1px solid #ddd;
+      margin: 0.3em 0 0.8em 0;
+    }
+    .caption {
+      font-size: 10.5pt;
+      font-style: italic;
+      margin-top: -0.3em;
+      margin-bottom: 1.0em;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Brown eVTOL AVL Study</h1>
+  <p><strong>Zacharias Brown</strong><br>AME 532<br>March 28, 2026</p>
+
+  <h2>1. Overview</h2>
+  <p>
+    This study uses AVL as a higher-fidelity aircraft-level aerodynamic model for the Brown eVTOL project.
+    The AVL model is intentionally simplified to the fixed aerodynamic lifting surfaces only: one main wing
+    and one V-tail pair. Rotors, propwash, booms, and fuselage-body effects are omitted in this first pass.
+    The purpose of the study is twofold. First, it satisfies the homework requirement to build an aircraft in
+    AVL, run alpha, beta, and control-deflection sweeps, and trim the aircraft under multiple flight constraints.
+    Second, it produces aircraft-level coefficient data that can be compared directly against the current
+    linear-superposition `aeroSurface` model used in the flight sim.
+  </p>
+
+  <h2>2. AVL Setup and Geometry</h2>
+  <p>
+    AVL was launched successfully on the Mac from the local binary in the repo's <code>AVL software</code> folder.
+    The terminal transcript below demonstrates that the executable runs and loads the custom eVTOL aircraft model.
+  </p>
+  <pre>
+ ===================================================
+  Athena Vortex Lattice  Program      Version  3.40
+  Copyright (C) 2002   Mark Drela, Harold Youngren
+
+  This software comes with ABSOLUTELY NO WARRANTY,
+    subject to the GNU General Public License.
+
+  Caveat computor
+ ===================================================
+
+ ==========================================================
+   Quit    Exit program
+
+  .OPER    Compute operating-point run cases
+  .MODE    Eigenvalue analysis of run cases
+  .TIME    Time-domain calculations
+
+   LOAD f  Read configuration input file
+   MASS f  Read mass distribution file
+   CASE f  Read run case file
+</pre>
+  <p>
+    The geometry was derived from the current <code>aircraft_def.m</code> setup using the coordinate mapping
+    <code>x_avl = -x_sim</code>, <code>y_avl = y_sim</code>, and <code>z_avl = -z_sim</code>. Standard nominal airfoils were used
+    for this homework pass: <code>NACA 2412</code> for the wing and <code>NACA 0012</code> for the V-tail. The figure below
+    shows the simplified planform that was implemented in AVL, and the listing excerpt confirms the actual surface
+    and control definitions used by the solver.
+  </p>
+  <img src="avl_homework/assets/geometry_top_view.svg" alt="AVL top-view geometry">
+  <div class="caption">Figure 1. Simplified AVL planform used for the homework study.</div>
+  <pre>Brown eVTOL simplified fixed-aero model
+# Mach
+0.0
+# IYsym   IZsym   Zsym
+0        0       0.0
+# Sref    Cref    Bref
+18.75    1.50    12.50
+# Xref    Yref    Zref
+-0.0002  0.0     0.2089
+
+# Simplified AVL geometry derived from aircraft_def.m
+# Mapping from sim to AVL:
+#   x_avl = -x_sim
+#   y_avl =  y_sim
+#   z_avl = -z_sim
+# Rotors, booms, and fuselage are intentionally omitted in this v1 model.
+
+SURFACE
+Wing
+# Nchord   Cspace   Nspan   Sspace
+12         1.0      20      1.0
+YDUPLICATE
+0.0
+
+SECTION
+# Xle      Yle      Zle      Chord    Ainc    Nspan   Sspace
+-0.25      0.625    0.60     1.50     0.0     10      1.0
+NACA
+2412
+CONTROL
+flap       1.0      0.72     0.0      0.0     0.0     1.0
+CONTROL
+aileron   -1.0      0.72     0.0      0.0     0.0    -1.0
+
+SECTION
+# Xle      Yle      Zle      Chord    Ainc    Nspan   Sspace
+-0.25      6.875    0.60     1.50     0.0      0      1.0
+NACA
+2412
+CONTROL
+flap       1.0      0.72     0.0      0.0     0.0     1.0
+CONTROL
+aileron   -1.0      0.72     0.0      0.0     0.0    -1.0
+
+SURFACE
+VTail
+# Nchord   Cspace   Nspan   Sspace
+10         1.0      12      1.0</pre>
+
+  <h2>3. Control Sign Verification</h2>
+  <p>
+    Positive control signs were checked with short ±5 deg cases before running the full sweeps. The conventions used
+    were: flap down positive, aileron positive for roll-right, elevator positive for trailing-edge-down ruddervators,
+    and rudder positive for yaw-right. The resulting signs were consistent with the intended setup, so no control-gain
+    reversals were needed after the first verification pass.
+  </p>
+  <table><tr><th>control</th><th>negative_effect</th><th>positive_effect</th><th>expected_positive_response</th><th>status</th></tr><tr><td>flap</td><td>-0.21827</td><td>0.21800</td><td>positive flap should increase CL</td><td>PASS</td></tr><tr><td>aileron</td><td>-0.05841</td><td>0.05841</td><td>positive aileron should create positive rolling moment</td><td>PASS</td></tr><tr><td>elevator</td><td>0.10169</td><td>-0.10449</td><td>positive elevator should create a more nose-down pitching moment (negative Cm)</td><td>PASS</td></tr><tr><td>rudder</td><td>-0.00641</td><td>0.00641</td><td>positive rudder should create positive yawing moment</td><td>PASS</td></tr></table>
+
+  <h2>4. Alpha, Beta, and Control Sweeps</h2>
+  <p>
+    The aircraft was evaluated at a nominal cruise condition of <code>V = 70 m/s</code>. Alpha was swept from
+    <code>-6 deg</code> to <code>14 deg</code>, beta from <code>-10 deg</code> to <code>10 deg</code>, and the flap, aileron,
+    elevator, and rudder controls were each swept from <code>-15 deg</code> to <code>15 deg</code> with the other variables held fixed.
+    The AVL results are plotted against the current simple flight-sim model to show where the present linear
+    superposition approach agrees and where it begins to differ.
+  </p>
+  <div class="two-col">
+    <div>
+      <img src="avl_homework/assets/alpha_cl.svg" alt="Alpha CL comparison">
+      <img src="avl_homework/assets/beta_cy.svg" alt="Beta CY comparison">
+      <img src="avl_homework/assets/aileron_cl.svg" alt="Aileron Cl comparison">
+      <img src="avl_homework/assets/flap_cd.svg" alt="Flap CD comparison">
+    </div>
+    <div>
+      <img src="avl_homework/assets/alpha_cm.svg" alt="Alpha Cm comparison">
+      <img src="avl_homework/assets/beta_cn.svg" alt="Beta Cn comparison">
+      <img src="avl_homework/assets/elevator_cm.svg" alt="Elevator Cm comparison">
+      <img src="avl_homework/assets/rudder_cn.svg" alt="Rudder Cn comparison">
+    </div>
+  </div>
+  <p>
+    The alpha sweep behaved as expected: lift increased nearly linearly over the selected range, while the pitching
+    moment became more nose-down with increasing alpha. The beta sweep produced the expected lateral/directional
+    responses in side force and yawing moment. Positive aileron generated a positive rolling moment, positive elevator
+    produced a more nose-down pitching moment, and positive rudder produced a positive yawing moment. The flap sweep
+    increased lift while also increasing induced drag. One important limitation is that this AVL model is inviscid, so
+    the drag trends should be interpreted primarily as induced-drag trends rather than full viscous drag predictions.
+  </p>
+
+  <h2>5. Baseline Stability and Control Derivatives</h2>
+  <p>
+    AVL stability derivatives were extracted at the baseline operating point of <code>alpha = 4 deg</code>,
+    <code>beta = 0 deg</code>, and zero control deflections. These derivatives provide a convenient aircraft-level
+    reference for comparison against the current simple surface-based model.
+  </p>
+  <table><tr><th>Derivative</th><th>Value</th></tr><tr><td>CDffd01</td><td>0.002136</td></tr><tr><td>CLa</td><td>4.535371</td></tr><tr><td>CLb</td><td>0.000000</td></tr><tr><td>CLd01</td><td>0.043563</td></tr><tr><td>CYb</td><td>-0.237284</td></tr><tr><td>CYd04</td><td>-0.004435</td></tr><tr><td>Clb</td><td>-0.058831</td></tr><tr><td>Cld02</td><td>0.011678</td></tr><tr><td>Cma</td><td>-1.799272</td></tr><tr><td>Cmd03</td><td>-0.020238</td></tr><tr><td>Cnb</td><td>0.230735</td></tr><tr><td>Cnd04</td><td>0.001289</td></tr></table>
+
+  <h2>6. Trim Cases</h2>
+  <p>
+    Two trim styles were exercised. First, level-flight cases were trimmed at <code>55</code>, <code>70</code>, and
+    <code>85 m/s</code> using an explicit <code>CL</code> target with roll, pitch, and yaw moment constraints. Second,
+    banked horizontal-flight cases were trimmed at <code>70 m/s</code> for bank angles of <code>15 deg</code> and
+    <code>30 deg</code> using AVL's <code>C1</code> banked-flight trim setup. This satisfies the homework requirement to
+    demonstrate more than one constraint style, while still keeping all cases tied to physically meaningful flight conditions.
+  </p>
+  <table><tr><th>case_name</th><th>constraint_style</th><th>speed_mps</th><th>bank_deg</th><th>alpha_trim_deg</th><th>aileron</th><th>elevator</th><th>rudder</th><th>CLtot</th><th>CDtot</th><th>L_over_D</th><th>reasonableness</th></tr><tr><td>level_55</td><td>explicit_CL</td><td>55.0</td><td>0.0</td><td>11.6393</td><td>-0.0</td><td>-22.1037</td><td>-0.0</td><td>0.85844</td><td>0.06005</td><td>14.295</td><td>Converged, but the required control deflection is large for this simplified fixed-aero model.</td></tr><tr><td>level_70</td><td>explicit_CL</td><td>70.0</td><td>0.0</td><td>6.3091</td><td>-0.0</td><td>-12.9373</td><td>-0.0</td><td>0.52996</td><td>0.02329</td><td>22.755</td><td>Converged with moderate lift and control demand, which is reasonable for this simplified AVL model.</td></tr><tr><td>level_85</td><td>explicit_CL</td><td>85.0</td><td>0.0</td><td>3.6527</td><td>-0.0</td><td>-8.7673</td><td>-0.0</td><td>0.35942</td><td>0.01136</td><td>31.639</td><td>Converged with moderate lift and control demand, which is reasonable for this simplified AVL model.</td></tr><tr><td>bank15_70</td><td>C1_banked</td><td>70.0</td><td>15.0</td><td>6.5976</td><td>-0.0678</td><td>-13.4449</td><td>0.076</td><td>0.54865</td><td>0.02489</td><td>22.043</td><td>Converged with moderate lift and control demand, which is reasonable for this simplified AVL model.</td></tr><tr><td>bank30_70</td><td>C1_banked</td><td>70.0</td><td>30.0</td><td>7.582</td><td>-0.1463</td><td>-15.1928</td><td>0.1355</td><td>0.61194</td><td>0.03073</td><td>19.913</td><td>Converged with moderate lift and control demand, which is reasonable for this simplified AVL model.</td></tr></table>
+
+  <h2>7. What This Means for the Full Sim</h2>
+  <p>
+    The comparison plots show that AVL and the current linear-superposition model track each other qualitatively in
+    several trends, but they do not produce the same aircraft-level coefficients. That is exactly the useful result
+    for the flight sim. The next practical sim step is not to replace the plant immediately, but to use these AVL
+    results to update the current derivative set and validate whether that alone materially improves the model.
+    If the residual mismatch remains large after that update, then the correct next step would be to build a new
+    lookup-table-based aircraft-level aerodynamic block.
+  </p>
+
+  <h2>8. Files Produced</h2>
+  <ul>
+    <li><code>AVL software/brown_evtol/brown_evtol.avl</code></li>
+    <li><code>AVL software/brown_evtol/brown_evtol.mass</code></li>
+    <li><code>AVL software/brown_evtol/output/</code> raw AVL sessions and outputs</li>
+    <li><code>docs/avl_homework/tables/</code> CSV tables for sweeps, trims, and derivative summaries</li>
+    <li><code>docs/avl_homework/assets/</code> SVG plots and geometry figures</li>
+  </ul>
+
+  <h2>9. References</h2>
+  <p>
+    Mark Drela and Harold Youngren, <em>Athena Vortex Lattice (AVL)</em>, MIT.<br>
+    Local supporting materials used during setup: <code>AVL software/AVL Tutorial.pdf</code> and the official AVL user primer.
+  </p>
+</body>
+</html>

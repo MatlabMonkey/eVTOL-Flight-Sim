@@ -1,0 +1,6 @@
+case_name,constraint_style,speed_mps,bank_deg,alpha_trim_deg,aileron,elevator,rudder,CLtot,CDtot,L_over_D,reasonableness
+level_55,explicit_CL,55.0,0.0,11.6393,-0.0,-22.1037,-0.0,0.85844,0.06005,14.295,"Converged, but the required control deflection is large for this simplified fixed-aero model."
+level_70,explicit_CL,70.0,0.0,6.3091,-0.0,-12.9373,-0.0,0.52996,0.02329,22.755,"Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+level_85,explicit_CL,85.0,0.0,3.6527,-0.0,-8.7673,-0.0,0.35942,0.01136,31.639,"Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+bank15_70,C1_banked,70.0,15.0,6.5976,-0.0678,-13.4449,0.076,0.54865,0.02489,22.043,"Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+bank30_70,C1_banked,70.0,30.0,7.582,-0.1463,-15.1928,0.1355,0.61194,0.03073,19.913,"Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."

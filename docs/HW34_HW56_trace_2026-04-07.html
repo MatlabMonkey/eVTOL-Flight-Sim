@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HW34 HW56 Trace</title>
+  <style>
+    body { font-family: "Times New Roman", Times, serif; margin: 32px auto; max-width: 900px; line-height: 1.35; }
+    h1, h2 { margin-bottom: 0.3rem; }
+    p, li { font-size: 15px; }
+    code { font-family: Menlo, Consolas, monospace; font-size: 0.95em; }
+  </style>
+</head>
+<body>
+  <h1>HW34 and HW56 Trace</h1>
+
+  <h2>What Each Live Script Does</h2>
+  <p><code>HW34_sensors_rootlocus.mlx</code> is the setup and analysis notebook. It shows the new wrapper architecture, checks the sensors against truth, shows one bias-on versus bias-off comparison, prints the open-loop eigenvalues, and displays the damper, PD, and PI-D root locus figures.</p>
+  <p><code>HW56_control_demos.mlx</code> is the demo notebook. It runs one longitudinal closed-loop case and one lateral closed-loop case from the trimmed cruise setup and replots the main state and command histories.</p>
+
+  <h2>Call Path</h2>
+  <p><code>HW56_control_demos.mlx</code> calls <code>run_longitudinal_demo.m</code> and <code>run_lateral_demo.m</code>. Those helpers run <code>Brown_Control_Sim.slx</code>, and that wrapper references <code>Brown_6DOF_Plant.slx</code> as the inner 6-DoF plant.</p>
+  <p><code>HW34_sensors_rootlocus.mlx</code> calls <code>run_sensor_checkout.m</code>, <code>linearize_cruise_plant.m</code>, <code>design_dampers.m</code>, <code>design_pd.m</code>, and <code>design_pid.m</code>. The linearization path uses <code>Brown_Control_Analysis_Helper.slx</code> and the referenced plant.</p>
+
+  <h2>What Was Added In The Last Controls Pass</h2>
+  <ul>
+    <li><code>Brown_Control_Sim.slx</code>: new outer wrapper for sensors, estimator, controller, commands, and logging.</li>
+    <li><code>Brown_Control_Analysis_Helper.slx</code>: scalarized analysis model for <code>linmod()</code>.</li>
+    <li><code>Brown_6DOF_Plant.slx</code>: kept as the reusable referenced plant.</li>
+    <li><code>scripts/simulink/build_control_wrapper_model.m</code>: rebuilds the wrapper around the referenced plant.</li>
+    <li><code>scripts/simulink/build_control_analysis_helper.m</code>: rebuilds the analysis helper used by the root-locus scripts.</li>
+    <li><code>scripts/control/setup_cruise_trim_case.m</code>: loads the Homework 7 cruise trim result and uses it as the controller baseline.</li>
+  </ul>
+
+  <h2>Important Fixes During This Pass</h2>
+  <ul>
+    <li>The wrapper plant input order was corrected so the grouped collective and surface inputs go to the right plant ports.</li>
+    <li>The estimator path was updated so the complementary filter can use the attitude measurement as a stabilizing correction term.</li>
+    <li>The trim baseline was cleaned up so the motor-group trim vector is reserved for differential controller offsets instead of duplicating the grouped collective trim.</li>
+    <li>The wrapper collective wiring was corrected so the trimmed front and rear collective RPM values actually reach the plant during the demo runs.</li>
+  </ul>
+
+  <h2>Files Used Directly In The Demo Package</h2>
+  <ul>
+    <li><code>HW34_sensors_rootlocus_live_source.m</code></li>
+    <li><code>HW56_control_demos_live_source.m</code></li>
+    <li><code>scripts/control/run_sensor_checkout.m</code></li>
+    <li><code>scripts/control/run_longitudinal_demo.m</code></li>
+    <li><code>scripts/control/run_lateral_demo.m</code></li>
+    <li><code>scripts/control/linearize_cruise_plant.m</code></li>
+    <li><code>scripts/control/design_dampers.m</code></li>
+    <li><code>scripts/control/design_pd.m</code></li>
+    <li><code>scripts/control/design_pid.m</code></li>
+  </ul>
+</body>
+</html>

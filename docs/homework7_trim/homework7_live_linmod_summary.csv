@@ -1,0 +1,4 @@
+case_name,state_count,input_count,output_count,max_real_eig,min_real_eig
+"70 m/s, bank 0 deg",13,24,33,0,0
+"85 m/s, bank 0 deg",13,24,33,0,0
+"70 m/s, bank 5 deg",13,24,33,0.0179745567755479,-0.0139743689752383

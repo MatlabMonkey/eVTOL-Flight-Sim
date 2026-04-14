@@ -4,7 +4,7 @@ function aircraft = aircraft_def(varargin)
 % These literal defaults are intentionally easy to parse from tooling.
 flight_mode = 0;
 rho = 1.225;
-g = -9.81; % Gravity sign convention used by the Simulink model
+g = 9.81; % Positive gravity magnitude; model blocks build signed vectors explicitly
 
 if nargin == 1 && isnumeric(varargin{1}) && isscalar(varargin{1})
     flight_mode = varargin{1};

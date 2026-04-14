@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Homework 7 Trim Investigation</title>
+  <style>
+    body { font-family: Georgia, "Times New Roman", serif; margin: 32px auto; max-width: 960px; line-height: 1.45; color: #111; }
+    h1, h2 { margin-bottom: 0.2em; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 20px; margin-top: 1.6em; }
+    p, li { font-size: 16px; }
+    table { border-collapse: collapse; width: 100%; margin: 14px 0 22px; font-size: 14px; }
+    th, td { border: 1px solid #bbb; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f1f1f1; }
+    code { background: #f6f6f6; padding: 1px 4px; border-radius: 4px; }
+    .small { font-size: 14px; color: #444; }
+  </style>
+</head>
+<body>
+  <h1>Homework 7 Trim Investigation</h1>
+  <p class="small">Repository: <code>/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim</code><br>
+  Date: March 31, 2026</p>
+
+  <h2>What I Ran</h2>
+  <p>I investigated the original Homework 7 trim workflow, then ran a fallback grouped-input trim search and full-plant linearization. The main scripts used were:</p>
+  <ul>
+    <li><code>scripts/trim/homework7_trim_cases.m</code> for the original legacy <code>trim()</code> workflow.</li>
+    <li><code>scripts/trim/homework7_trim_diagnostics.m</code> for direct force/moment balance checks using the current analytical aircraft equations.</li>
+    <li><code>scripts/trim/homework7_manual_trim_search.m</code> for the final grouped-input trim operating points.</li>
+    <li><code>scripts/control/homework7_linmod_manual_cases.m</code> for <code>linmod()</code> around the final operating points.</li>
+  </ul>
+
+  <h2>Root Cause</h2>
+  <p>The aircraft physics were not the main problem. A direct balance study showed that steady cruise operating points do exist at 70 m/s and 85 m/s with reasonable grouped controls. The failure was in the original full-plant <code>trim()</code> formulation. In the legacy setup, the quaternion-based attitude state was underconstrained, so the solver repeatedly drifted into non-physical attitudes and non-unit quaternions instead of staying near the intended cruise seed. That is why the legacy trim summary showed obviously impossible results such as near-vertical pitch, near-zero airspeed, and enormous control deflections.</p>
+
+  <p>Two additional cleanup items were important but were not the final root cause:</p>
+  <ul>
+    <li>The original trim setup treated the 12-motor input vector as 12 independent trim variables. That had to be reduced to grouped front and rear collectives.</li>
+    <li>The original analytical trim seeding had a gravity-sign issue that could produce a bad initial lift estimate.</li>
+  </ul>
+
+  <p>After those fixes, the plant still would not converge cleanly with the legacy <code>trim()</code> call, which is what pointed to the quaternion-state conditioning problem rather than a missing physical trim point.</p>
+
+  <h2>Checks That Confirmed The Physics</h2>
+  <p>The direct balance search on the current analytical aircraft equations found near-zero residual cruise points at 70 m/s and 85 m/s. A direct open-loop simulation of the full plant at the 70 m/s manual seed also reported the expected initial outputs:</p>
+  <ul>
+    <li><code>eul_truth = [0, 0.0459, 0]</code> rad, which is about 2.63 deg pitch.</li>
+    <li><code>vinf_truth = 70</code> m/s.</li>
+    <li><code>alpha_truth = 0.0459</code> rad.</li>
+    <li><code>beta_truth = 0</code>.</li>
+  </ul>
+
+  <p>That confirmed the full plant can represent the intended operating condition correctly even though the legacy <code>trim()</code> search does not stay there.</p>
+
+  <h2>Final Working Trim Conditions</h2>
+  <p>The final operating points below came from the grouped-input balance search in <code>homework7_manual_trim_search.m</code>. These are the operating points I recommend using for the homework writeup and for the linearizations.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>Speed (m/s)</th>
+        <th>Bank (deg)</th>
+        <th>Alpha / Pitch (deg)</th>
+        <th>Beta (deg)</th>
+        <th>r (rad/s)</th>
+        <th>delta_a (deg)</th>
+        <th>delta_e (deg)</th>
+        <th>delta_r (deg)</th>
+        <th>Front RPM</th>
+        <th>Rear RPM</th>
+        <th>Residuals</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>level_70</code></td>
+        <td>70</td>
+        <td>0</td>
+        <td>2.6325</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>-15.0603</td>
+        <td>0</td>
+        <td>1181.43</td>
+        <td>0</td>
+        <td>force norm = 3.17e-8, moment norm = 4.92e-9</td>
+      </tr>
+      <tr>
+        <td><code>level_85</code></td>
+        <td>85</td>
+        <td>0</td>
+        <td>0.2177</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>-2.7370</td>
+        <td>0</td>
+        <td>1307.18</td>
+        <td>0</td>
+        <td>force norm = 2.31e-8, moment norm = 2.04e-8</td>
+      </tr>
+      <tr>
+        <td><code>bank_5deg_70</code></td>
+        <td>70</td>
+        <td>5</td>
+        <td>2.6040</td>
+        <td>0.000124</td>
+        <td>0.012205</td>
+        <td>-0.01288</td>
+        <td>-14.9142</td>
+        <td>0.06223</td>
+        <td>1182.53</td>
+        <td>0.00633</td>
+        <td>force norm = 7.96e-6, moment norm = 2.64e-5</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Legacy Trim Results</h2>
+  <p>The original <code>homework7_trim_cases.m</code> workflow was left in place for comparison. It still does not produce usable trim points. The saved summary in <code>docs/homework7_trim/homework7_trim_summary.csv</code> shows large output residuals and unrealistic control values. Those results should not be used in the homework submission.</p>
+
+  <h2>Linearization Results</h2>
+  <p>I ran <code>linmod()</code> on the full plant at the manual operating points using <code>scripts/control/homework7_linmod_manual_cases.m</code>. The summary is:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>States</th>
+        <th>Inputs</th>
+        <th>Outputs</th>
+        <th>Max Real Eigenvalue</th>
+        <th>Min Real Eigenvalue</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>level_70</code></td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>5.42e-20</td>
+        <td>-3.05e-11</td>
+      </tr>
+      <tr>
+        <td><code>level_85</code></td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>2.71e-19</td>
+        <td>-2.52e-12</td>
+      </tr>
+      <tr>
+        <td><code>bank_5deg_70</code></td>
+        <td>13</td>
+        <td>24</td>
+        <td>33</td>
+        <td>1.797e-2</td>
+        <td>-1.397e-2</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What Worked</h2>
+  <ul>
+    <li>Grouped front and rear collective trim variables.</li>
+    <li>Manual balance search on the current analytical aircraft equations.</li>
+    <li>Direct open-loop plant verification at the manual trim seed.</li>
+    <li><code>linmod()</code> on the full plant around the manual operating points.</li>
+  </ul>
+
+  <h2>What Did Not Work Reliably</h2>
+  <ul>
+    <li>The legacy full-plant <code>trim()</code> setup in <code>homework7_trim_cases.m</code>.</li>
+    <li>Trying to let the quaternion-based trim search choose the attitude state freely.</li>
+    <li>Treating the 12 detailed RPM channels as independent trim inputs.</li>
+  </ul>
+
+  <h2>Files To Use In The Morning</h2>
+  <ul>
+    <li><code>scripts/trim/homework7_manual_trim_search.m</code></li>
+    <li><code>scripts/control/homework7_linmod_manual_cases.m</code></li>
+    <li><code>docs/homework7_trim/homework7_manual_trim_summary.csv</code></li>
+    <li><code>docs/homework7_trim/homework7_linmod_manual_summary.csv</code></li>
+    <li><code>docs/homework7_trim/homework7_linmod_manual_eigs.csv</code></li>
+  </ul>
+
+  <h2>Recommended Commands</h2>
+  <p>Run these from the repository root in MATLAB:</p>
+  <pre><code>addpath(genpath(fullfile(pwd,'scripts')));
+report = homework7_manual_trim_search('LevelSpeeds',[70 85],'BankSpeed',70,'BankDeg',5);
+linResults = homework7_linmod_manual_cases;
+</code></pre>
+</body>
+</html>
