@@ -128,15 +128,15 @@ plantCmd5 = localPlantCmdBus(simOut5.get('plant_cmd_bus'), log_idx.plant_cmd_bus
 
 beforeIdx5 = localBeforeStepIndex(tVinf5, cmd_profile.vinf.time);
 
-figure('Color', 'w', 'Position', [100 100 950 700]);
-tiledlayout(3,1);
+figure('Color', 'w', 'Position', [100 100 950 820]);
+tiledlayout(4,1);
 
 nexttile;
 plot(tVinf5, vinfTruth5, 'LineWidth', 1.3); hold on;
 plot(tCmd5, vinfCmd5, '--', 'LineWidth', 1.2);
 grid on;
 ylabel('m/s');
-title('Homework 5 Longitudinal Response');
+title('Longitudinal Response');
 legend('airspeed', 'command', 'Location', 'best');
 
 nexttile;
@@ -146,12 +146,17 @@ ylabel('deg');
 legend('\theta', 'Location', 'best');
 
 nexttile;
-plot(plantCmd5.t, plantCmd5.front_collective_rpm, 'LineWidth', 1.2); hold on;
+plot(plantCmd5.t, plantCmd5.front_collective_rpm, 'LineWidth', 1.2);
+grid on;
+ylabel('rpm');
+legend('front collective', 'Location', 'best');
+
+nexttile;
 plot(plantCmd5.t, rad2deg(plantCmd5.delta_e_cmd), 'LineWidth', 1.2);
 grid on;
 xlabel('Time [s]');
-ylabel('cmd');
-legend('front collective [rpm]', '\delta_e [deg]', 'Location', 'best');
+ylabel('deg');
+legend('\delta_e', 'Location', 'best');
 
 longSummary = table( ...
     vinfTruth5(beforeIdx5), vinfCmd5(beforeIdx5), ...
@@ -187,7 +192,7 @@ plot(tEul6, rad2deg(eulTruth6(:,1)), 'LineWidth', 1.3); hold on;
 plot(tCmd6, rad2deg(eulerCmd6(:,1)), '--', 'LineWidth', 1.2);
 grid on;
 ylabel('deg');
-title('Homework 6 Lateral Response');
+title('Lateral Response');
 legend('\phi', 'command', 'Location', 'best');
 
 nexttile;

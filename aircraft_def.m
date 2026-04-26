@@ -40,9 +40,9 @@ tilt_angle = 90 * flight_mode;
 
 % --- Propeller Struct Constants ---
 prop.hub_offset = 0.50;  % Standoff length from the pivot axis to the prop hub
-prop.k_Thrust   = 1.2e-4;
-prop.k_Torque   = 1.5e-5;  % Front masks
-prop.k_torque   = 1.5e-5;  % Rear masks (matching lowercase 't')
+prop.k_Thrust   = 7.57e-4;
+prop.k_Torque   = 1.19e-4;  % Front masks
+prop.k_torque   = 1.19e-4;  % Rear masks (matching lowercase 't')
 prop.Lspin_dir  = [-1; 1; -1];
 prop.Rspin_dir  = [1; -1; 1];
 

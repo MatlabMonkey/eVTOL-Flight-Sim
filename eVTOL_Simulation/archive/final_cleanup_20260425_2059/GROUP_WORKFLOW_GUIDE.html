@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eVTOL_Simulation Group Workflow Guide</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #53627a;
+      --line: #d7deea;
+      --accent: #1c6dd0;
+      --good: #0e8a4a;
+      --warn: #b7791f;
+      --bad: #c53030;
+      --code: #eef3fa;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, #eef3fb 0%, var(--bg) 180px);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    .hero,
+    section,
+    .note {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(23, 32, 51, 0.05);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    section {
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.4rem;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      margin-bottom: 0.8rem;
+      color: #12243f;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+      color: #16345a;
+    }
+
+    p, li {
+      color: var(--ink);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .card {
+      background: #fbfcff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      background: var(--code);
+      padding: 0.14rem 0.34rem;
+      border-radius: 6px;
+    }
+
+    pre {
+      background: #0f1a2b;
+      color: #edf3ff;
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 0.8rem 0 0.2rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eff4fb;
+      color: #16345a;
+    }
+
+    .status-good {
+      color: var(--good);
+      font-weight: 700;
+    }
+
+    .status-warn {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .status-bad {
+      color: var(--bad);
+      font-weight: 700;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f8fbff;
+      color: #27456f;
+      font-size: 0.92rem;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    .foot {
+      font-size: 0.93rem;
+      color: var(--muted);
+    }
+
+    .stale {
+      border-color: #c53030;
+      background: #fff5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero stale">
+      <h1>Obsolete eVTOL_Simulation Group Workflow Guide</h1>
+      <p class="muted">
+        Last reviewed: <strong>2026-04-25 16:53 PDT</strong>. This HTML guide is stale and kept only as historical reference.
+        It still mentions removed paths such as <code>cases/*</code>, <code>Run_EVTOL_Suite</code>, and
+        <code>Build_Controller_EVTOL_Cruise</code>.
+      </p>
+      <p class="muted">
+        Use <code>README.md</code>, <code>TRIM_DATABASES.md</code>, and
+        <code>docs/EV_SIMULATION_WORKFLOW_MAP.md</code> for the current workflow.
+      </p>
+      <div>
+        <span class="pill">Active trim model: <code>Trim_Plant</code></span>
+        <span class="pill">Active run model: <code>Wrapper</code></span>
+        <span class="pill">Primary workflow: Init → Trim → Build Controller → Run</span>
+      </div>
+    </div>
+
+    <section>
+      <h2>1. What This Folder Is For</h2>
+      <p>
+        This folder is the working simulation workflow for our eVTOL project. The main idea is:
+      </p>
+      <pre>Init_Main
+trimCase = ...
+Trim_Main
+Build_Controller_EVTOL_Cruise   % optional / only if trim succeeded
+runCase = ...
+Run_Main</pre>
+      <p>
+        Scripts pass structured data like <code>initData</code>, <code>trimResult</code>, and
+        <code>runCase</code>. The Simulink models still use plain workspace variables and
+        <code>From Workspace</code> inputs.
+      </p>
+    </section>
+
+    <section>
+      <h2>2. Main Files To Know</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Top-level scripts</h3>
+          <ul>
+            <li><code>Init_Main.m</code></li>
+            <li><code>Trim_Main.m</code></li>
+            <li><code>Build_Controller_EVTOL_Cruise.m</code></li>
+            <li><code>Run_Main.m</code></li>
+            <li><code>Run_EVTOL_Suite.m</code></li>
+            <li><code>Trim_EVTOL_Sweep.m</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Active models</h3>
+          <ul>
+            <li><code>Trim_Plant.slx</code> — trim and linearization model</li>
+            <li><code>Wrapper.slx</code> — main run / wrapper model</li>
+            <li><code>Plant.slx</code> — main plant model</li>
+            <li><code>eVTOL_lib.slx</code> — shared library blocks</li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid two" style="margin-top: 14px;">
+        <div class="card">
+          <h3>Cases</h3>
+          <ul>
+            <li><code>cases/trim/*.m</code> — trim-case functions</li>
+            <li><code>cases/run/*.m</code> — run-case functions</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Utilities</h3>
+          <ul>
+            <li><code>plot_evtol_workspace_outputs.m</code></li>
+            <li><code>make_evtol_video.m</code></li>
+            <li><code>render_aircraft.m</code></li>
+            <li><code>control_effectiveness_fd_test.m</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Quick Start</h2>
+      <h3>Hover trim that currently works</h3>
+      <pre>cd('.../eVTOL-Flight-Sim/eVTOL_Simulation')
+Init_Main
+trimCase = TrimCase_Hover();
+Trim_Main</pre>
+
+      <h3>Open-loop wrapper prep only</h3>
+      <pre>Init_Main
+trimCase = TrimCase_Hover();
+Trim_Main
+runCase = RunCase_PrepOnly();
+Run_Main</pre>
+
+      <h3>Attempt a wrapper simulation</h3>
+      <pre>Init_Main
+trimCase = TrimCase_Hover();
+Trim_Main
+runCase = RunCase_OpenLoopMainAttempt();
+Run_Main</pre>
+
+      <p class="foot">
+        After <code>Run_Main</code>, the main script leaves <code>runSpec</code>,
+        <code>runContext</code>, <code>runResult</code>, and <code>simOut</code> in the workspace.
+      </p>
+    </section>
+
+    <section>
+      <h2>4. Initialization</h2>
+      <p>
+        <code>Init_Main</code> just calls <code>Full_Sim_Init.m</code>. This sets up:
+      </p>
+      <ul>
+        <li>aircraft constants from <code>aircraft_def.m</code></li>
+        <li>active model names (<code>Trim_Plant</code> and <code>Wrapper</code>)</li>
+        <li>default timing and initial conditions</li>
+        <li>default grouped motor and tilt commands</li>
+        <li>workspace variables that existing Simulink blocks still expect</li>
+      </ul>
+      <p>
+        If you start from a clean MATLAB workspace, run <code>Init_Main</code> first.
+      </p>
+    </section>
+
+    <section>
+      <h2>5. How Trim Works Right Now</h2>
+      <p>
+        The main trim entrypoint is <code>Trim_Main</code>, which calls
+        <code>trim_evtol_case(initData, trimCase, options)</code>.
+      </p>
+      <p>
+        A trim case is just a MATLAB function that returns a struct. The most important fields are:
+      </p>
+      <div class="grid two">
+        <div class="card">
+          <h3>Operating-point fields</h3>
+          <ul>
+            <li><code>name</code>, <code>mode</code></li>
+            <li><code>Vinf_mps</code></li>
+            <li><code>u_body_mps</code>, <code>v_body_mps</code>, <code>w_body_mps</code></li>
+            <li><code>phi_deg</code>, <code>psi_deg</code>, <code>theta_guess_deg</code></li>
+            <li><code>front_tilt_deg</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Trim-logic fields</h3>
+          <ul>
+            <li><code>body_velocity_known</code>, <code>body_velocity_steady</code></li>
+            <li><code>euler_known</code>, <code>euler_steady</code></li>
+            <li><code>mixed_control_known</code></li>
+            <li><code>use_vinf_output_constraint</code></li>
+            <li><code>use_vertical_speed_output_constraint</code></li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid two" style="margin-top: 14px;">
+        <div class="card">
+          <h3>Seeds / guesses</h3>
+          <ul>
+            <li><code>front_collective_guess_rpm</code></li>
+            <li><code>rear_collective_guess_rpm</code></li>
+            <li><code>delta_f_guess_deg</code></li>
+            <li><code>delta_e_guess_deg</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Validation fields</h3>
+          <ul>
+            <li><code>trim_validation_stop_time_s</code></li>
+            <li><code>validate_nonlinear_hold</code></li>
+            <li><code>surface_limit_deg</code></li>
+            <li><code>surface_rate_limit_deg_s</code></li>
+          </ul>
+        </div>
+      </div>
+      <p>
+        The trim plant now takes both direct surface inputs and mixed controls. The current trim formulation
+        fixes the direct physical surface inputs at zero and trims using the mixed channels
+        <code>delta_f</code>, <code>delta_a</code>, <code>delta_e</code>, and <code>delta_r</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>6. Current Trim Status</h2>
+      <p>
+        These were rechecked in the current folder state. “Works” here means
+        <code>trimResult.success = true</code> and the trim termination string says the operating-point
+        specifications were successfully met.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Trim case</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>TrimCase_Hover()</code></td>
+            <td class="status-good">Working</td>
+            <td>
+              Current default hover case trims cleanly. Uses the geometry-based front/rear collective seed:
+              about <code>1865.7 rpm</code> front and <code>1756.4 rpm</code> rear, with mixed controls fixed at zero.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75()</code></td>
+            <td class="status-bad">Not exact-working</td>
+            <td>
+              Current case only frees front collective, rear collective, and <code>delta_e</code>. It does not
+              satisfy all trim constraints at exact 75 m/s in the current folder state.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75_FlapElevator()</code></td>
+            <td class="status-good">Working</td>
+            <td>
+              Current known-good 75 m/s cruise trim. Uses the mixed-control path with
+              <code>delta_f</code> and <code>delta_e</code> free, while <code>delta_a</code> and
+              <code>delta_r</code> stay fixed at zero. A representative exact trim is about
+              <code>front collective = 808.9 rpm</code>,
+              <code>delta_f = +0.794 deg</code>, and
+              <code>delta_e = -4.353 deg</code>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75_FlapElevator()</code> with rear collective fixed</td>
+            <td class="status-good">Working family</td>
+            <td>
+              This trim also works as a small 1-parameter cruise family when the rear collective is
+              held at different fixed values. Verified exact trims so far:
+              <code>rear = 0 rpm</code>,
+              <code>rear = 200 rpm</code>, and
+              <code>rear = 500 rpm</code>. The front collective and the symmetric flap/elevator
+              trim rebalance around that rear-collective schedule.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75_Longitudinal()</code></td>
+            <td class="status-bad">Not exact-working</td>
+            <td>
+              Longitudinal-only cruise attempt with front collective, rear collective, <code>delta_f</code>, and
+              <code>delta_e</code> free. Still does not satisfy the current exact trim constraints.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75_CollectiveElevator()</code></td>
+            <td class="status-bad">Not exact-working</td>
+            <td>
+              Front collective, rear collective, and <code>delta_e</code> only. Useful as an exploratory case,
+              but not an exact 75 m/s trim in the current folder.
+            </td>
+          </tr>
+          <tr>
+            <td><code>TrimCase_Cruise75_PropOnly()</code></td>
+            <td class="status-bad">Not exact-working</td>
+            <td>
+              Prop-only cruise trim. As expected, this is not enough for exact cruise in the current model.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="foot">
+        Short version: <strong>hover is restored and reliable</strong>, and
+        <strong>exact 75 m/s cruise trim is restored</strong> through the
+        <code>TrimCase_Cruise75_FlapElevator()</code> family. The older experimental cruise cases are still useful
+        for exploration, but they are no longer the best “known-good” cruise entrypoints.
+      </p>
+    </section>
+
+    <section>
+      <h2>7. How To Make Or Edit A Trim Case</h2>
+      <p>
+        Put trim cases in <code>cases/trim</code>. The intended pattern is one small function per case.
+      </p>
+      <pre>function trimCase = TrimCase_MyNewCase()
+trimCase = TrimCase_Hover();   % or TrimCase_Cruise75(), if that is a better starting point
+trimCase.name = 'MyNewCase';
+trimCase.Vinf_mps = 60.0;
+trimCase.front_tilt_deg = 90.0;
+trimCase.front_collective_guess_rpm = 900.0;
+trimCase.rear_collective_guess_rpm = 250.0;
+trimCase.mixed_control_known = [true; true; false; true];
+trimCase.delta_e_guess_deg = -5.0;
+end</pre>
+      <p>
+        The simplest workflow is usually to copy a nearby case and change only a few fields.
+      </p>
+    </section>
+
+    <section>
+      <h2>8. Controller Build</h2>
+      <p>
+        <code>Build_Controller_EVTOL_Cruise</code> calls
+        <code>Design_LQR_Controller_EVTOL_Cruise.m</code>.
+      </p>
+      <p>
+        The current controller build expects:
+      </p>
+      <ul>
+        <li>a successful <code>trimResult</code></li>
+        <li>a 9-state rigid-body linear model from the trim step</li>
+        <li>mixed-control input ordering: <code>[front_collective, delta_f, delta_a, delta_e, delta_r]</code></li>
+      </ul>
+      <p>
+        At the moment, this is best thought of as a <strong>cruise LQR path that depends on cruise trim being exact</strong>.
+        The current best starting point for exact cruise work is
+        <code>TrimCase_Cruise75_FlapElevator()</code>. The older experimental cruise cases are still useful for
+        diagnostics, but they should not be the default controller-build seed.
+      </p>
+      <pre>Init_Main
+trimCase = TrimCase_Cruise75_FlapElevator();
+Trim_Main
+Build_Controller_EVTOL_Cruise</pre>
+    </section>
+
+    <section>
+      <h2>9. Running The Wrapper</h2>
+      <p>
+        <code>Run_Main</code> takes the current <code>trimResult</code> and optional
+        <code>controllerData</code>, builds command traces, publishes wrapper-facing workspace variables,
+        and then optionally simulates <code>Wrapper</code>.
+      </p>
+      <h3>Current run cases</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Run case</th>
+            <th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>RunCase_PrepOnly()</code></td>
+            <td>Builds all wrapper inputs but does not actually simulate.</td>
+          </tr>
+          <tr>
+            <td><code>RunCase_OpenLoopMainAttempt()</code></td>
+            <td>Attempts an open-loop wrapper simulation.</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>Typical wrapper run</h3>
+      <pre>Init_Main
+trimCase = TrimCase_Hover();
+Trim_Main
+runCase = RunCase_OpenLoopMainAttempt();
+Run_Main</pre>
+
+      <h3>Suite run</h3>
+      <pre>Init_Main
+trimCase = TrimCase_Hover();
+Trim_Main
+Run_EVTOL_Suite</pre>
+      <p>
+        By default, <code>Run_EVTOL_Suite</code> runs:
+      </p>
+      <ul>
+        <li><code>RunCase_PrepOnly()</code></li>
+        <li><code>RunCase_OpenLoopMainAttempt()</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>10. Plotting Wrapper Outputs</h2>
+      <p>
+        The plotting helper is <code>plot_evtol_workspace_outputs.m</code>. It expects the wrapper simulation
+        output to be in a base-workspace variable named <code>out</code>.
+      </p>
+      <p>
+        <strong>Important:</strong> <code>Run_Main</code> currently leaves the simulation output in
+        <code>simOut</code>, not <code>out</code>. So after a run, do this first:
+      </p>
+      <pre>out = simOut;</pre>
+      <p>Then you can plot:</p>
+      <pre>plot_evtol_workspace_outputs
+plot_evtol_workspace_outputs('important')
+plot_evtol_workspace_outputs('all')</pre>
+      <p>
+        The helper also plots <code>cmds</code> when you use the broader modes.
+      </p>
+    </section>
+
+    <section>
+      <h2>11. Making A Video</h2>
+      <p>
+        Use <code>make_evtol_video.m</code> after a wrapper run. The easiest case is to pass the
+        simulation output directly:
+      </p>
+      <pre>make_evtol_video('sim_out', simOut)</pre>
+      <p>
+        Or, if you want to use the default workspace variable names:
+      </p>
+      <pre>out = simOut;
+make_evtol_video('sim_out_var', 'out')</pre>
+      <p>
+        The helper looks for:
+      </p>
+      <ul>
+        <li>truth signals like <code>pos_NED</code>, <code>eul_truth</code>, <code>V_B_truth</code>, <code>omega_truth</code></li>
+        <li>internal logging like <code>viz_tilt_states</code>, <code>viz_surface_states</code>, <code>viz_prop_rpm</code></li>
+      </ul>
+      <p>
+        By default, videos go into <code>workspace_plots/</code>. Existing examples in that folder include:
+      </p>
+      <ul>
+        <li><code>lqr_120s_airspeed_step30_10s.mp4</code></li>
+        <li><code>lqr_120s_roll_step30_10s.mp4</code></li>
+        <li><code>out_video_test.mp4</code></li>
+        <li><code>quick_video_test2.mp4</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>12. Batch Trim Sweeps</h2>
+      <p>
+        If you want to scan a small trim grid, use:
+      </p>
+      <pre>Init_Main
+trimSweep = TrimSweep_CruiseGrid();
+Trim_EVTOL_Sweep</pre>
+      <p>
+        <code>TrimSweep_CruiseGrid()</code> currently sweeps:
+      </p>
+      <ul>
+        <li><code>Vinf_mps = 70:5:80</code></li>
+        <li><code>front_tilt_deg = 90</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>13. Workspace Variables You Will See</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>initData</code></td>
+            <td>Initialization data and model routing</td>
+          </tr>
+          <tr>
+            <td><code>trimCase</code></td>
+            <td>The selected trim-case struct</td>
+          </tr>
+          <tr>
+            <td><code>trimResult</code></td>
+            <td>Trim result, trim inputs, and linearized model</td>
+          </tr>
+          <tr>
+            <td><code>controllerData</code></td>
+            <td>Controller gains and trim references</td>
+          </tr>
+          <tr>
+            <td><code>runCase</code></td>
+            <td>The selected run-case struct</td>
+          </tr>
+          <tr>
+            <td><code>cmds</code></td>
+            <td>Wrapper command traces</td>
+          </tr>
+          <tr>
+            <td><code>runSpec</code></td>
+            <td>Numeric run definition built by <code>Run_Main</code></td>
+          </tr>
+          <tr>
+            <td><code>runContext</code></td>
+            <td>Summary of what was pushed into the wrapper</td>
+          </tr>
+          <tr>
+            <td><code>runResult</code></td>
+            <td>Status/result struct for the run step</td>
+          </tr>
+          <tr>
+            <td><code>simOut</code></td>
+            <td>Simulation output returned by the wrapper run</td>
+          </tr>
+          <tr>
+            <td><code>out</code></td>
+            <td>Optional alias you may create for plotting helpers</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>14. Recommended Teammate Workflow Right Now</h2>
+      <ol>
+        <li>Run <code>Init_Main</code>.</li>
+        <li>Use <code>TrimCase_Hover()</code> if you need a known-good trim today.</li>
+        <li>Use <code>TrimCase_Cruise75_FlapElevator()</code> if you need a known-good exact 75 m/s cruise trim today.</li>
+        <li>Use <code>Trim_Main</code> to solve the trim.</li>
+        <li>Use <code>RunCase_PrepOnly()</code> first if you are just checking the workspace handoff into the wrapper.</li>
+        <li>Use <code>RunCase_OpenLoopMainAttempt()</code> when you actually want to try the wrapper.</li>
+        <li>After a run, do <code>out = simOut;</code> before using the plotting helper.</li>
+      </ol>
+      <p>
+        If you are doing cruise work, start from the flap/elevator cruise family and only switch back to the older
+        experimental trim cases when you are intentionally debugging trim authority or formulation choices.
+      </p>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,162 @@
+{
+  "baseline_totals": {
+    "Alpha": 4.0,
+    "Beta": 0.0,
+    "CXtot": 0.02099,
+    "CYtot": -0.0,
+    "CZtot": -0.46803,
+    "CLtot": 0.46835,
+    "CDtot": 0.0117,
+    "Cmtot": -0.18689,
+    "Cltot": 0.0,
+    "Cntot": 0.0,
+    "flap": 0.0,
+    "aileron": 0.0,
+    "elevator": 0.0,
+    "rudder": 0.0
+  },
+  "baseline_derivatives": {
+    "CLa": 4.535371,
+    "CLb": 0.0,
+    "CYb": -0.237284,
+    "Clb": -0.058831,
+    "Cma": -1.799272,
+    "Cnb": 0.230735,
+    "CLd01": 0.043563,
+    "Cld02": 0.011678,
+    "Cmd03": -0.020238,
+    "Cnd04": 0.001289,
+    "CYd04": -0.004435,
+    "CDffd01": 0.002136
+  },
+  "sign_checks": [
+    {
+      "control": "flap",
+      "negative_effect": "-0.21827",
+      "positive_effect": "0.21800",
+      "expected_positive_response": "positive flap should increase CL",
+      "status": "PASS"
+    },
+    {
+      "control": "aileron",
+      "negative_effect": "-0.05841",
+      "positive_effect": "0.05841",
+      "expected_positive_response": "positive aileron should create positive rolling moment",
+      "status": "PASS"
+    },
+    {
+      "control": "elevator",
+      "negative_effect": "0.10169",
+      "positive_effect": "-0.10449",
+      "expected_positive_response": "positive elevator should create a more nose-down pitching moment (negative Cm)",
+      "status": "PASS"
+    },
+    {
+      "control": "rudder",
+      "negative_effect": "-0.00641",
+      "positive_effect": "0.00641",
+      "expected_positive_response": "positive rudder should create positive yawing moment",
+      "status": "PASS"
+    }
+  ],
+  "trim_rows": [
+    {
+      "case_name": "level_55",
+      "constraint_style": "explicit_CL",
+      "speed_mps": 55.0,
+      "bank_deg": 0.0,
+      "alpha_trim_deg": 11.6393,
+      "flap": 0.0,
+      "aileron": -0.0,
+      "elevator": -22.1037,
+      "rudder": -0.0,
+      "CLtot": 0.85844,
+      "CDtot": 0.06005,
+      "L_over_D": 14.295,
+      "reasonableness": "Converged, but the required control deflection is large for this simplified fixed-aero model."
+    },
+    {
+      "case_name": "level_70",
+      "constraint_style": "explicit_CL",
+      "speed_mps": 70.0,
+      "bank_deg": 0.0,
+      "alpha_trim_deg": 6.3091,
+      "flap": 0.0,
+      "aileron": -0.0,
+      "elevator": -12.9373,
+      "rudder": -0.0,
+      "CLtot": 0.52996,
+      "CDtot": 0.02329,
+      "L_over_D": 22.755,
+      "reasonableness": "Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+    },
+    {
+      "case_name": "level_85",
+      "constraint_style": "explicit_CL",
+      "speed_mps": 85.0,
+      "bank_deg": 0.0,
+      "alpha_trim_deg": 3.6527,
+      "flap": 0.0,
+      "aileron": -0.0,
+      "elevator": -8.7673,
+      "rudder": -0.0,
+      "CLtot": 0.35942,
+      "CDtot": 0.01136,
+      "L_over_D": 31.639,
+      "reasonableness": "Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+    },
+    {
+      "case_name": "bank15_70",
+      "constraint_style": "C1_banked",
+      "speed_mps": 70.0,
+      "bank_deg": 15.0,
+      "alpha_trim_deg": 6.5976,
+      "flap": 0.0,
+      "aileron": -0.0678,
+      "elevator": -13.4449,
+      "rudder": 0.076,
+      "CLtot": 0.54865,
+      "CDtot": 0.02489,
+      "L_over_D": 22.043,
+      "reasonableness": "Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+    },
+    {
+      "case_name": "bank30_70",
+      "constraint_style": "C1_banked",
+      "speed_mps": 70.0,
+      "bank_deg": 30.0,
+      "alpha_trim_deg": 7.582,
+      "flap": 0.0,
+      "aileron": -0.1463,
+      "elevator": -15.1928,
+      "rudder": 0.1355,
+      "CLtot": 0.61194,
+      "CDtot": 0.03073,
+      "L_over_D": 19.913,
+      "reasonableness": "Converged with moderate lift and control demand, which is reasonable for this simplified AVL model."
+    }
+  ],
+  "generated_tables": [
+    "docs/avl_homework/tables/aileron_sweep.csv",
+    "docs/avl_homework/tables/alpha_sweep.csv",
+    "docs/avl_homework/tables/baseline_derivatives.csv",
+    "docs/avl_homework/tables/beta_sweep.csv",
+    "docs/avl_homework/tables/elevator_sweep.csv",
+    "docs/avl_homework/tables/flap_sweep.csv",
+    "docs/avl_homework/tables/rudder_sweep.csv",
+    "docs/avl_homework/tables/sign_checks.csv",
+    "docs/avl_homework/tables/trim_cases.csv"
+  ],
+  "generated_assets": [
+    "docs/avl_homework/assets/aileron_cl.svg",
+    "docs/avl_homework/assets/alpha_cl.svg",
+    "docs/avl_homework/assets/alpha_cm.svg",
+    "docs/avl_homework/assets/beta_cn.svg",
+    "docs/avl_homework/assets/beta_cy.svg",
+    "docs/avl_homework/assets/elevator_cm.svg",
+    "docs/avl_homework/assets/flap_cd.svg",
+    "docs/avl_homework/assets/geometry_top_view.svg",
+    "docs/avl_homework/assets/rudder_cn.svg"
+  ],
+  "report": "docs/AVL_BROWN_EVTOL_HOMEWORK_2026-03-28.html"
+}

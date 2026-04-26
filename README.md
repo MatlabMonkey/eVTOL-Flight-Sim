@@ -47,6 +47,20 @@ If your installation is missing a required product, MATLAB will report the missi
    open_system('Brown_Full_Sim')
    ```
 
+## Main workflow
+
+The current recommended workflow for new trim/run studies lives in:
+
+- [`scripts/main_workflow/README.md`](scripts/main_workflow/README.md)
+
+That path uses:
+
+- `Brown_6DOF_Init_main.m` as the only init script
+- a copied trim backend under `scripts/main_workflow/models/`
+- a copied run backend under `scripts/main_workflow/models/`
+
+Start there if you want the clean grouped-command workflow rather than the older wrapper/helper chain.
+
 ## Smoke test (headless-friendly)
 
 A minimal non-GUI sanity check is provided:

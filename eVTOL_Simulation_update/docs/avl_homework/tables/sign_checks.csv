@@ -1,0 +1,5 @@
+control,negative_effect,positive_effect,expected_positive_response,status
+flap,-0.21827,0.21800,positive flap should increase CL,PASS
+aileron,-0.05841,0.05841,positive aileron should create positive rolling moment,PASS
+elevator,0.10169,-0.10449,positive elevator should create a more nose-down pitching moment (negative Cm),PASS
+rudder,-0.00641,0.00641,positive rudder should create positive yawing moment,PASS

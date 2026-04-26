@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eVTOL_Simulation Quick Start</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #18243a;
+      --muted: #5d6c85;
+      --line: #d7e0ec;
+      --good: #0f8a4b;
+      --warn: #b7791f;
+      --bad: #c53030;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, #eaf1fb 0, var(--bg) 220px);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 28px 22px 48px;
+    }
+
+    .hero, section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(24, 36, 58, 0.05);
+    }
+
+    .hero {
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    section {
+      padding: 20px 22px;
+      margin-bottom: 14px;
+    }
+
+    h1, h2, h3 { margin-top: 0; letter-spacing: -0.02em; }
+    h1 { font-size: 1.9rem; margin-bottom: 0.35rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 0.7rem; }
+    h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+
+    p, li { margin-top: 0; }
+
+    .muted { color: var(--muted); }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px 16px;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      background: #eef3fb;
+      padding: 0.12rem 0.32rem;
+      border-radius: 6px;
+    }
+
+    pre {
+      background: #0f1b2d;
+      color: #edf3ff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 0.7rem 0 0.2rem;
+    }
+
+    ul, ol { padding-left: 20px; }
+
+    .good { color: var(--good); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef4fb;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>eVTOL_Simulation Quick Start</h1>
+      <p class="muted">
+        Fast commands for using the current folder workflow without reading the whole architecture doc.
+      </p>
+      <p>
+        Current active models:
+        <code>Trim_Plant</code> for trim and
+        <code>Wrapper</code> for runs.
+      </p>
+    </div>
+
+    <section>
+      <h2>1. Default Workflow</h2>
+      <pre>Init_EVTOL_Main
+trimCase = ...
+Trim_EVTOL_Main
+Build_Controller_EVTOL_Cruise   % only if trim succeeded
+runCase = ...
+Run_EVTOL_Main</pre>
+      <p>
+        The run script uses <code>Wrapper</code>, not <code>Plant</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>2. Working Trim Right Now</h2>
+      <p><span class="good">Known good:</span> <code>TrimCase_Hover()</code></p>
+      <pre>cd('.../eVTOL-Flight-Sim/eVTOL_Simulation')
+Init_EVTOL_Main
+trimCase = TrimCase_Hover();
+Trim_EVTOL_Main</pre>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Current hover result</h3>
+          <ul>
+            <li>success = true</li>
+            <li>front collective ≈ <code>1865.7 rpm</code></li>
+            <li>rear collective ≈ <code>1756.4 rpm</code></li>
+            <li>mixed controls fixed at zero</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Cruise status</h3>
+          <ul>
+            <li><span class="bad">Not exact-working right now:</span> <code>TrimCase_Cruise75()</code></li>
+            <li><span class="bad">Not exact-working:</span> <code>TrimCase_Cruise75_Longitudinal()</code></li>
+            <li><span class="bad">Not exact-working:</span> <code>TrimCase_Cruise75_CollectiveElevator()</code></li>
+            <li><span class="bad">Not exact-working:</span> <code>TrimCase_Cruise75_PropOnly()</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Build The Controller</h2>
+      <p>
+        The controller build is for the cruise LQR path and expects a successful trim result first.
+      </p>
+      <pre>Init_EVTOL_Main
+trimCase = TrimCase_Cruise75();
+Trim_EVTOL_Main
+Build_Controller_EVTOL_Cruise</pre>
+      <p class="muted">
+        Since the exact cruise trim cases are still unresolved, expect the controller path to be in progress unless you have a validated cruise trim.
+      </p>
+    </section>
+
+    <section>
+      <h2>4. Run The Wrapper</h2>
+      <h3>Prep the wrapper without simulating</h3>
+      <pre>Init_EVTOL_Main
+trimCase = TrimCase_Hover();
+Trim_EVTOL_Main
+runCase = RunCase_PrepOnly();
+Run_EVTOL_Main</pre>
+
+      <h3>Attempt a wrapper simulation</h3>
+      <pre>Init_EVTOL_Main
+trimCase = TrimCase_Hover();
+Trim_EVTOL_Main
+runCase = RunCase_OpenLoopMainAttempt();
+Run_EVTOL_Main</pre>
+
+      <p>
+        Main outputs left in the workspace:
+        <code>runSpec</code>, <code>runContext</code>, <code>runResult</code>, and <code>simOut</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>5. Plot Outputs</h2>
+      <p>
+        The plotting helper expects a workspace variable named <code>out</code>. After a run, copy:
+      </p>
+      <pre>out = simOut;</pre>
+      <p>Then use:</p>
+      <pre>plot_evtol_workspace_outputs
+plot_evtol_workspace_outputs('important')
+plot_evtol_workspace_outputs('all')</pre>
+    </section>
+
+    <section>
+      <h2>6. Make A Video</h2>
+      <p>
+        The simplest usage after a wrapper run is:
+      </p>
+      <pre>make_evtol_video('sim_out', simOut)</pre>
+      <p>
+        Or, if you want to use the default workspace variable name:
+      </p>
+      <pre>out = simOut;
+make_evtol_video('sim_out_var', 'out')</pre>
+      <p>
+        Videos are written to <code>workspace_plots/</code> by default.
+      </p>
+    </section>
+
+    <section>
+      <h2>7. Batch Runs</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Run suite</h3>
+          <pre>Init_EVTOL_Main
+trimCase = TrimCase_Hover();
+Trim_EVTOL_Main
+Run_EVTOL_Suite</pre>
+        </div>
+        <div class="card">
+          <h3>Trim sweep</h3>
+          <pre>Init_EVTOL_Main
+trimSweep = TrimSweep_CruiseGrid();
+Trim_EVTOL_Sweep</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>8. Files To Remember</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>What it is for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Init_EVTOL_Main.m</code></td>
+            <td>Initialize the workflow</td>
+          </tr>
+          <tr>
+            <td><code>Trim_EVTOL_Main.m</code></td>
+            <td>Run one trim case</td>
+          </tr>
+          <tr>
+            <td><code>Build_Controller_EVTOL_Cruise.m</code></td>
+            <td>Build the cruise LQR controller</td>
+          </tr>
+          <tr>
+            <td><code>Run_EVTOL_Main.m</code></td>
+            <td>Prepare and optionally simulate the wrapper</td>
+          </tr>
+          <tr>
+            <td><code>plot_evtol_workspace_outputs.m</code></td>
+            <td>Plot wrapper output signals</td>
+          </tr>
+          <tr>
+            <td><code>make_evtol_video.m</code></td>
+            <td>Render an MP4 from wrapper outputs</td>
+          </tr>
+          <tr>
+            <td><code>cases/trim/TrimCase_Hover.m</code></td>
+            <td>Current known-good trim case</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</body>
+</html>

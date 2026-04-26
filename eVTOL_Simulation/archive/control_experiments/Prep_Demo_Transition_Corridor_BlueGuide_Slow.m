@@ -1,0 +1,19 @@
+% Prep_Demo_Transition_Corridor_BlueGuide_Slow.m
+% Very slow segmented corridor demo for first-pass transition debugging.
+%
+% This intentionally gives the vehicle a long time to settle near each
+% selected corridor point before ramping to the next one.
+
+transitionCorridorPrepOptions = struct();
+transitionCorridorPrepOptions.scheduler_mode = 'segmented';
+transitionCorridorPrepOptions.run_stop_time_s = 440.0;
+transitionCorridorPrepOptions.schedule_opts = struct( ...
+    'direction', 'hover_to_cruise', ...
+    'step_time_s', 0.01, ...
+    'initial_hold_time_s', 8.0, ...
+    'segment_hold_time_s', 3.0, ...
+    'segment_ramp_time_s', 6.0, ...
+    'final_hold_time_s', 8.0);
+
+setappdata(0, 'TransitionCorridorPrepOptions', transitionCorridorPrepOptions);
+Prep_Wrapper_TransitionCorridor_BlueGuide_ScheduledLQR

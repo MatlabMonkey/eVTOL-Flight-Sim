@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360">
+<rect width="100%" height="100%" fill="white"/>
+<text x="380.0" y="24" text-anchor="middle" font-size="18" font-family="Times New Roman">Rudder Sweep: Cn Comparison</text>
+<line x1="72" y1="306" x2="740" y2="306" stroke="#111"/>
+<line x1="72" y1="48" x2="72" y2="306" stroke="#111"/>
+<text x="380.0" y="348" text-anchor="middle" font-size="14" font-family="Times New Roman">Rudder [deg]</text>
+<text x="18" y="180.0" text-anchor="middle" transform="rotate(-90 18 180.0)" font-size="14" font-family="Times New Roman">Cn</text>
+<line x1="72.0" y1="306" x2="72.0" y2="311" stroke="#111"/>
+<text x="72.0" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">-15.0</text>
+<line x1="205.6" y1="306" x2="205.6" y2="311" stroke="#111"/>
+<text x="205.6" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">-9.0</text>
+<line x1="339.2" y1="306" x2="339.2" y2="311" stroke="#111"/>
+<text x="339.2" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">-3.0</text>
+<line x1="472.8" y1="306" x2="472.8" y2="311" stroke="#111"/>
+<text x="472.8" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">3.0</text>
+<line x1="606.4" y1="306" x2="606.4" y2="311" stroke="#111"/>
+<text x="606.4" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">9.0</text>
+<line x1="740.0" y1="306" x2="740.0" y2="311" stroke="#111"/>
+<text x="740.0" y="326" text-anchor="middle" font-size="12" font-family="Times New Roman">15.0</text>
+<line x1="67" y1="306.0" x2="72" y2="306.0" stroke="#111"/>
+<line x1="72" y1="306.0" x2="740" y2="306.0" stroke="#ddd"/>
+<text x="62" y="310.0" text-anchor="end" font-size="12" font-family="Times New Roman">-0.02</text>
+<line x1="67" y1="254.4" x2="72" y2="254.4" stroke="#111"/>
+<line x1="72" y1="254.4" x2="740" y2="254.4" stroke="#ddd"/>
+<text x="62" y="258.4" text-anchor="end" font-size="12" font-family="Times New Roman">-0.01</text>
+<line x1="67" y1="202.8" x2="72" y2="202.8" stroke="#111"/>
+<line x1="72" y1="202.8" x2="740" y2="202.8" stroke="#ddd"/>
+<text x="62" y="206.8" text-anchor="end" font-size="12" font-family="Times New Roman">-0.00</text>
+<line x1="67" y1="151.2" x2="72" y2="151.2" stroke="#111"/>
+<line x1="72" y1="151.2" x2="740" y2="151.2" stroke="#ddd"/>
+<text x="62" y="155.2" text-anchor="end" font-size="12" font-family="Times New Roman">0.00</text>
+<line x1="67" y1="99.6" x2="72" y2="99.6" stroke="#111"/>
+<line x1="72" y1="99.6" x2="740" y2="99.6" stroke="#ddd"/>
+<text x="62" y="103.6" text-anchor="end" font-size="12" font-family="Times New Roman">0.01</text>
+<line x1="67" y1="48.0" x2="72" y2="48.0" stroke="#111"/>
+<line x1="72" y1="48.0" x2="740" y2="48.0" stroke="#ddd"/>
+<text x="62" y="52.0" text-anchor="end" font-size="12" font-family="Times New Roman">0.02</text>
+<path d="M 72.0 288.2 L 183.3 251.1 L 294.7 214.1 L 406.0 177.0 L 517.3 139.9 L 628.7 102.9 L 740.0 65.8" fill="none" stroke="#0057b8" stroke-width="2.2"/>
+<line x1="590" y1="66" x2="608" y2="66" stroke="#0057b8" stroke-width="2.2"/>
+<text x="614" y="70" font-size="12" font-family="Times New Roman">AVL</text>
+<path d="M 72.0 265.0 L 183.3 235.6 L 294.7 206.3 L 406.0 177.0 L 517.3 147.7 L 628.7 118.4 L 740.0 89.0" fill="none" stroke="#d45500" stroke-width="2.2"/>
+<line x1="590" y1="84" x2="608" y2="84" stroke="#d45500" stroke-width="2.2"/>
+<text x="614" y="88" font-size="12" font-family="Times New Roman">Current simple model</text>
+</svg>
