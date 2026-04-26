@@ -1,9 +1,0 @@
-function key = make_trim_cache_key_main(session, trimSpec)
-%MAKE_TRIM_CACHE_KEY_MAIN Build a stable key for one trim request.
-
-tilt = trimSpec.tiltAnglesGrouped(:).';
-key = sprintf('%s|%s|%s|speed=%.6f|bank=%.6f|tilt=%s|alt=%.6f|avl=%d', ...
-    session.sessionKey, session.trimModel, lower(trimSpec.source), ...
-    trimSpec.cruiseSpeedMps, trimSpec.bankDeg, mat2str(tilt, 6), ...
-    trimSpec.altitudeNED, logical(trimSpec.useAvlAero));
-end

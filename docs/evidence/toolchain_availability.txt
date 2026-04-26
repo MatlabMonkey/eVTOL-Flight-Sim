@@ -1,2 +1,0 @@
-matlab not found
-octave not found

@@ -221,6 +221,22 @@ aircraft.tailL = tailL;
 aircraft.tailR = tailR;
 aircraft.controls = controls;
 aircraft.render_surfaces = {wingL, wingR, tailL, tailR};
+
+% Define the control-mixing matrix M
+% Columns represent inputs:  [delta_f, delta_a, delta_e, delta_r]
+% Rows represent outputs:    [deltaLW; deltaRW; deltaLT; deltaRT]
+%
+% Positive local deflection means trailing-edge down. With the standard
+% command convention used in this file:
+%   delta_f > 0 -> symmetric flap-down
+%   delta_a > 0 -> roll-right (left down, right up)
+%   delta_e > 0 -> pitch-down
+%   delta_r > 0 -> yaw-right
+aircraft.MixMatrix = [1  1  0  0;
+                      1 -1  0  0;
+                      0  0  1 -1;
+                      0  0  1  1];
+aircraft.DeMixMatrix = inv(aircraft.MixMatrix);
 end
 
 function surface = localBuildSurfaceStruct(compData, aeroData, surface_name, rho)
@@ -233,7 +249,6 @@ if isempty(comp_idx) || isempty(aero_idx)
 end
 
 surface = struct();
-surface.name = char(surface_name);
 surface.c = compData{comp_idx, 4}(1);
 surface.b = compData{comp_idx, 4}(2);
 surface.S = surface.b * surface.c;
@@ -254,7 +269,6 @@ end
 
 function wing = localCombineWingHalves(wingL, wingR, rho)
 wing = wingL;
-wing.name = 'Main Wing';
 wing.b = wingL.b + wingR.b;
 wing.S = wingL.S + wingR.S;
 wing.half_rho_S = 0.5 * rho * wing.S;
@@ -301,7 +315,7 @@ ruddervator.count_in_this_sim = 2;
 ruddervator.count_in_archer_patent = 6;
 ruddervator.control_chord_fraction = 0.30;
 ruddervator.control_span_fraction = 1.00;
-ruddervator.effectiveness_tau = 0.45;
+ruddervator.effectiveness_tau = 0.55;
 ruddervator.max_deflection_rad = deg2rad(25);
 ruddervator.vtail_half_angle_rad = vtail_half_angle;
 ruddervator.local_deflection_sign = 'positive = trailing-edge down';

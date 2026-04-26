@@ -1,5 +1,5 @@
 function hFig = render_aircraft(varargin)
-%RENDER_AIRCRAFT Render the Brown eVTOL geometry and vector overlays.
+%RENDER_AIRCRAFT Render the Brown eVTOL geometry in a chosen pose.
 %
 % Usage:
 %   render_aircraft()
@@ -8,14 +8,28 @@ function hFig = render_aircraft(varargin)
 %   render_aircraft('transition')
 %   render_aircraft('transition', 45)
 %   render_aircraft('Stable_6DOF')
-%   render_aircraft('cruise', 'delta_e_deg', 5, 'delta_r_deg', 3)
-%   render_aircraft('cruise', 'delta_f_deg', 10, 'delta_a_deg', 4)
+%   render_aircraft('transition', 45, ...
+%       'body_eul_deg', [10; -4; 15], ...
+%       'surface_deflections_deg', [6; -2; 4; 1])
 %   render_aircraft(compData, CG, tilt_angle)
 %   render_aircraft(compData, CG, tilt_angle, ...
-%       'surfaces', {wing, tailL, tailR}, ...
+%       'surfaces', {wingL, wingR, tailL, tailR}, ...
 %       'prop', prop, ...
 %       'controls', controls, ...
-%       'thrust_tilt_deg', Tilt_angles)
+%       'thrust_tilt_deg', Tilt_angles, ...
+%       'body_eul', eul_init, ...
+%       'surface_deflections', [deltaLW; deltaRW; deltaLT; deltaRT], ...
+%       'theme', 'report', ...
+%       'figure_visible', 'off', ...
+%       'show_axes', false)
+%
+% Local surface-deflection vector order:
+%   [deltaLW; deltaRW; deltaLT; deltaRT]
+%
+% Front-tilt inputs accept:
+%   scalar  -> one tilt for all front rotors
+%   2x1     -> [FR_group; FL_group]
+%   6x1     -> [FR1; FR2; FR3; FL1; FL2; FL3]
 
 if nargin == 0
     aircraft = aircraft_def();
@@ -25,21 +39,22 @@ if nargin == 0
         'prop', aircraft.prop, ...
         'controls', aircraft.controls, ...
         'thrust_tilt_deg', scenario.Tilt_angles, ...
+        'body_eul', scenario.eul_init, ...
         'title_text', sprintf('%s (Scenario: %s)', ...
             'Brown eVTOL Aircraft', scenario.name));
     return;
 end
 
 if ischar(varargin{1}) || (isstring(varargin{1}) && isscalar(varargin{1}))
-    [tilt_angle, thrust_tilt_deg, title_text, extra_args] = ...
-        localResolveRenderPreset(varargin);
+    [request, extra_args] = localResolveRenderPreset(varargin);
     aircraft = aircraft_def('flight_mode', 0);
-    hFig = render_aircraft(aircraft.compData, aircraft.CG, tilt_angle, ...
+    hFig = render_aircraft(aircraft.compData, aircraft.CG, request.tilt_angle, ...
         'surfaces', aircraft.render_surfaces, ...
         'prop', aircraft.prop, ...
         'controls', aircraft.controls, ...
-        'thrust_tilt_deg', thrust_tilt_deg, ...
-        'title_text', title_text, ...
+        'thrust_tilt_deg', request.thrust_tilt_deg, ...
+        'body_eul', request.body_eul, ...
+        'title_text', request.title_text, ...
         extra_args{:});
     return;
 end
@@ -53,130 +68,148 @@ p.addParameter('surfaces', {}, @(x) isempty(x) || iscell(x) || isstruct(x));
 p.addParameter('prop', struct(), @isstruct);
 p.addParameter('controls', struct(), @isstruct);
 p.addParameter('thrust_tilt_deg', [], @isnumeric);
-p.addParameter('delta_e', 0, @isnumeric);
-p.addParameter('delta_r', 0, @isnumeric);
-p.addParameter('delta_e_deg', 0, @isnumeric);
-p.addParameter('delta_r_deg', 0, @isnumeric);
-p.addParameter('delta_f', 0, @isnumeric);
-p.addParameter('delta_a', 0, @isnumeric);
-p.addParameter('delta_f_deg', 0, @isnumeric);
-p.addParameter('delta_a_deg', 0, @isnumeric);
+p.addParameter('surface_deflections', [], @(x) isempty(x) || isnumeric(x) || isstruct(x));
+p.addParameter('surface_deflections_deg', [], @(x) isempty(x) || isnumeric(x) || isstruct(x));
+p.addParameter('body_eul', [], @isnumeric);
+p.addParameter('body_eul_deg', [], @isnumeric);
+p.addParameter('body_pos', [], @isnumeric);
 p.addParameter('show_vectors', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_labels', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_input_markers', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('normal_scale', 1.4, @isnumeric);
 p.addParameter('thrust_scale', 1.1, @isnumeric);
 p.addParameter('label_font_scale', 0.72, @isnumeric);
+p.addParameter('print_summary', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('title_text', '', @(x) ischar(x) || isstring(x));
+p.addParameter('theme', 'dark', @(x) ischar(x) || isstring(x));
+p.addParameter('figure_visible', 'on', @(x) ischar(x) || isstring(x) || islogical(x) || isnumeric(x));
+p.addParameter('show_axes', true, @(x) islogical(x) || isnumeric(x));
+p.addParameter('show_title', true, @(x) islogical(x) || isnumeric(x));
+p.addParameter('show_legend', true, @(x) islogical(x) || isnumeric(x));
+p.addParameter('show_cg_label', true, @(x) islogical(x) || isnumeric(x));
 p.parse(varargin{4:end});
 opts = p.Results;
 
+CG = localAsColumn3(CG, 'render_aircraft:BadCG', 'CG must be a 3-element vector.');
 surfaces = localNormalizeSurfaces(opts.surfaces);
-[delta_e_rad, delta_r_rad, delta_f_rad, delta_a_rad] = localResolveControlInputs(opts);
-ruddervator_state = localRuddervatorState(opts.controls, delta_e_rad, delta_r_rad);
-flaperon_state = localFlaperonState(opts.controls, delta_f_rad, delta_a_rad);
-hub_offset = localHubOffset(opts.prop);
-standoff_length = hub_offset;
-standoff_offset = 0.5 * standoff_length;
-frontSpecs = localFrontRotorSpecs(opts.prop, opts.thrust_tilt_deg, tilt_angle);
-rearSpecs = localRearRotorSpecs(opts.prop);
+surface_deflections = localResolveSurfaceDeflections(opts);
+front_tilts_deg = localResolveFrontTiltVector(opts.thrust_tilt_deg, tilt_angle);
+body_pose = localResolveBodyPose(opts, CG);
 label_sizes = localLabelFontSizes(opts.label_font_scale);
+theme = localResolveRenderTheme(opts.theme);
+
+surface_normal_specs = localTransformSurfaceData(surfaces, body_pose, CG);
+frontSpecs = localTransformRotorSpecs(localFrontRotorSpecs(opts.prop, front_tilts_deg), body_pose, CG);
+rearSpecs = localTransformRotorSpecs(localRearRotorSpecs(opts.prop), body_pose, CG);
 
 hFig = figure('Name', 'VTOL Aircraft Render', ...
-    'Color', [0.1 0.1 0.1], ...
-    'Position', [50 50 1400 900]);
+    'Color', theme.figure_color, ...
+    'Position', [50 50 1400 900], ...
+    'Visible', localResolveVisibleMode(opts.figure_visible));
 hold on;
-grid on;
 axis equal;
-set(gca, 'ZDir', 'reverse', ...
-    'Color', [0.15 0.15 0.15], ...
-    'XColor', 'w', 'YColor', 'w', 'ZColor', 'w');
-xlabel('X [m]');
-ylabel('Y [m]');
-zlabel('Z [m]');
-
-title_input = opts.title_text;
-if isstring(title_input)
-    title_input = char(title_input);
-end
-
-if ~isempty(title_input)
-    title_text = sprintf('%s\nVisual front tilt: %.1f deg', ...
-        title_input, tilt_angle);
+ax = gca;
+if opts.show_axes
+    grid on;
+    set(ax, 'ZDir', 'reverse', ...
+        'Color', theme.axes_color, ...
+        'XColor', theme.axis_color, 'YColor', theme.axis_color, 'ZColor', theme.axis_color, ...
+        'GridColor', theme.grid_color, 'GridAlpha', theme.grid_alpha);
+    xlabel('X [m]');
+    ylabel('Y [m]');
+    zlabel('Z [m]');
 else
-    title_text = sprintf('Aircraft Render (Visual front tilt: %.1f deg)', tilt_angle);
+    axis off;
+    set(ax, 'ZDir', 'reverse', ...
+        'Color', theme.axes_color, ...
+        'XColor', theme.axis_color, 'YColor', theme.axis_color, 'ZColor', theme.axis_color);
 end
-title(title_text, 'Color', 'w', 'FontSize', 14);
 
-N = size(compData, 1);
+if opts.show_title
+    title(localBuildTitleText(opts.title_text, mean(front_tilts_deg), body_pose.eul_deg), ...
+        'Color', theme.text_color, 'FontSize', 14);
+end
+
 control_surface_specs = struct('name', {}, 'pos', {}, 'dir', {}, 'deflection_deg', {}, 'kind', {});
+N = size(compData, 1);
 for i = 1:N
     name = compData{i, 1};
     type = compData{i, 2};
     dim = compData{i, 4};
-    pos = compData{i, 5};
-    eul = compData{i, 6} * (pi / 180);
-    rotor_tilt = localFrontComponentTilt(name, tilt_angle, opts.thrust_tilt_deg);
+    pos_body = compData{i, 5};
+    eul_body = deg2rad(compData{i, 6});
+    rotor_tilt_deg = localFrontComponentTilt(name, front_tilts_deg, tilt_angle);
 
-    % Shift front arms and rotors to their actual rendered tilt angle.
     if contains(name, 'F-Arm')
-        pivot = localFrontPivot(name, pos, opts.prop);
-        n_thrust = localThrustDirection(rotor_tilt);
-        dim = [0.20, 0.20, standoff_length];
-        pos = pivot + (standoff_offset * n_thrust);
-        eul = [0, -rotor_tilt, 0] * (pi / 180);
+        pivot = localFrontPivot(name, pos_body, opts.prop);
+        thrust_dir_body = localThrustDirection(rotor_tilt_deg);
+        hub_offset = localHubOffset(opts.prop);
+        dim = [hub_offset, 0.20, 0.20];
+        pos_body = pivot + (0.5 * hub_offset * thrust_dir_body);
+        eul_body = deg2rad([0, 90 - rotor_tilt_deg, 0]);
     elseif contains(name, 'F-Rotor')
-        pivot = localFrontPivot(name, pos, opts.prop);
-        n_thrust = localThrustDirection(rotor_tilt);
-        pos = pivot + (hub_offset * n_thrust);
-        eul = [0, -rotor_tilt, 0] * (pi / 180);
+        pivot = localFrontPivot(name, pos_body, opts.prop);
+        thrust_dir_body = localThrustDirection(rotor_tilt_deg);
+        pos_body = pivot + (localHubOffset(opts.prop) * thrust_dir_body);
+        eul_body = deg2rad([0, -rotor_tilt_deg, 0]);
     end
 
     color = localComponentColor(name, type);
+    R_comp = localRotationMatrix(eul_body);
 
     if strcmp(type, 'box') && contains(name, 'Main Wing')
-        deflection_rad = localWingDeflection(name, flaperon_state);
+        deflection_rad = localSurfaceDeflection(name, surface_deflections);
+        control_chord_fraction = localWingControlChordFraction(opts.controls);
         [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-            localBuildWingWithFlaperon(dim, flaperon_state.chord_fraction, deflection_rad);
-        R = localRotationMatrix(eul);
-        V_fixed_trans = (R * V_fixed')' + pos;
-        V_ctrl_trans = (R * V_ctrl')' + pos;
-        patch('Vertices', V_fixed_trans, 'Faces', F_fixed, ...
+            localBuildWingWithFlaperon(dim, control_chord_fraction, deflection_rad);
+
+        V_fixed_body = (R_comp * V_fixed')' + pos_body;
+        V_ctrl_body = (R_comp * V_ctrl')' + pos_body;
+        V_fixed_world = localApplyBodyPose(V_fixed_body, body_pose, CG);
+        V_ctrl_world = localApplyBodyPose(V_ctrl_body, body_pose, CG);
+
+        patch('Vertices', V_fixed_world, 'Faces', F_fixed, ...
             'FaceColor', color, 'FaceAlpha', 0.85, ...
             'EdgeColor', 'k', 'LineWidth', 1.0);
-        patch('Vertices', V_ctrl_trans, 'Faces', F_ctrl, ...
+        patch('Vertices', V_ctrl_world, 'Faces', F_ctrl, ...
             'FaceColor', [0.85 1.00 0.25], 'FaceAlpha', 0.92, ...
             'EdgeColor', 'k', 'LineWidth', 1.0);
+
         control_surface_specs(end + 1) = ... %#ok<AGROW>
-            localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, 'flaperon');
+            localBuildControlSurfaceSpec(name, R_comp, V_ctrl_body, body_pose, CG, deflection_rad, 'flaperon');
         if opts.show_labels
-            label_pos = mean(V_ctrl_trans, 1);
+            label_pos = mean(V_ctrl_world, 1);
             text(label_pos(1), label_pos(2), label_pos(3), ...
-                sprintf(' %s flap %.1f deg', localShortWingName(name), rad2deg(deflection_rad)), ...
+                sprintf(' %s %.1f deg', localShortWingName(name), rad2deg(deflection_rad)), ...
                 'Color', [0.90 1.00 0.65], 'FontSize', label_sizes.control, 'FontWeight', 'bold');
         end
         continue;
     end
 
     if strcmp(type, 'box') && contains(name, 'V-Tail')
-        deflection_rad = localTailDeflection(name, ruddervator_state);
+        deflection_rad = localSurfaceDeflection(name, surface_deflections);
+        control_chord_fraction = localTailControlChordFraction(opts.controls);
         [V_fixed, F_fixed, V_ctrl, F_ctrl] = ...
-            localBuildTailWithRuddervator(dim, ruddervator_state.chord_fraction, deflection_rad);
-        R = localRotationMatrix(eul);
-        V_fixed_trans = (R * V_fixed')' + pos;
-        V_ctrl_trans = (R * V_ctrl')' + pos;
-        patch('Vertices', V_fixed_trans, 'Faces', F_fixed, ...
+            localBuildTailWithRuddervator(dim, control_chord_fraction, deflection_rad);
+
+        V_fixed_body = (R_comp * V_fixed')' + pos_body;
+        V_ctrl_body = (R_comp * V_ctrl')' + pos_body;
+        V_fixed_world = localApplyBodyPose(V_fixed_body, body_pose, CG);
+        V_ctrl_world = localApplyBodyPose(V_ctrl_body, body_pose, CG);
+
+        patch('Vertices', V_fixed_world, 'Faces', F_fixed, ...
             'FaceColor', color, 'FaceAlpha', 0.85, ...
             'EdgeColor', 'k', 'LineWidth', 1.0);
-        patch('Vertices', V_ctrl_trans, 'Faces', F_ctrl, ...
+        patch('Vertices', V_ctrl_world, 'Faces', F_ctrl, ...
             'FaceColor', [1.0 0.95 0.20], 'FaceAlpha', 0.92, ...
             'EdgeColor', 'k', 'LineWidth', 1.0);
+
         control_surface_specs(end + 1) = ... %#ok<AGROW>
-            localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, 'ruddervator');
+            localBuildControlSurfaceSpec(name, R_comp, V_ctrl_body, body_pose, CG, deflection_rad, 'ruddervator');
         if opts.show_labels
-            label_pos = mean(V_ctrl_trans, 1);
+            label_pos = mean(V_ctrl_world, 1);
             text(label_pos(1), label_pos(2), label_pos(3), ...
-                sprintf(' %s rv %.1f deg', localShortTailName(name), rad2deg(deflection_rad)), ...
+                sprintf(' %s %.1f deg', localShortTailName(name), rad2deg(deflection_rad)), ...
                 'Color', [1.0 1.0 0.6], 'FontSize', label_sizes.control, 'FontWeight', 'bold');
         end
         continue;
@@ -192,10 +225,10 @@ for i = 1:N
         continue;
     end
 
-    R = localRotationMatrix(eul);
-    V_trans = (R * V')' + pos;
+    V_body = (R_comp * V')' + pos_body;
+    V_world = localApplyBodyPose(V_body, body_pose, CG);
 
-    patch('Vertices', V_trans, 'Faces', F, ...
+    patch('Vertices', V_world, 'Faces', F, ...
         'FaceColor', color, 'FaceAlpha', 0.85, ...
         'EdgeColor', 'k', 'LineWidth', 1.0);
 end
@@ -203,33 +236,33 @@ end
 legend_handles = gobjects(0);
 legend_labels = {};
 
-% CG marker
-hCG = plot3(CG(1), CG(2), CG(3), 'wp', ...
-    'MarkerFaceColor', 'w', 'MarkerSize', 15, 'LineWidth', 2);
+hCG = plot3(body_pose.position(1), body_pose.position(2), body_pose.position(3), 'o', ...
+    'Color', theme.cg_edge_color, ...
+    'MarkerFaceColor', theme.cg_face_color, ...
+    'MarkerSize', 15, 'LineWidth', 2);
 legend_handles(end + 1) = hCG; %#ok<AGROW>
 legend_labels{end + 1} = 'Center of Gravity'; %#ok<AGROW>
-text(CG(1), CG(2), CG(3) - 0.6, '  CG', ...
-    'FontWeight', 'bold', 'FontSize', label_sizes.cg, 'Color', 'w');
+text(body_pose.position(1), body_pose.position(2), body_pose.position(3) - 0.6, '  CG', ...
+    'FontWeight', 'bold', 'FontSize', label_sizes.cg, 'Color', theme.text_color, ...
+    'Visible', localOnOff(opts.show_cg_label));
 
 if opts.show_input_markers
-    [hAeroInput, hPropInput] = localPlotInputMarkers(surfaces, opts.prop);
+    [hAeroInput, hPropInput] = localPlotInputMarkers(surface_normal_specs, frontSpecs, rearSpecs);
     if ~isempty(hAeroInput) && isgraphics(hAeroInput)
         legend_handles(end + 1) = hAeroInput; %#ok<AGROW>
         legend_labels{end + 1} = 'Aero Reference Points'; %#ok<AGROW>
     end
     if ~isempty(hPropInput) && isgraphics(hPropInput)
         legend_handles(end + 1) = hPropInput; %#ok<AGROW>
-        legend_labels{end + 1} = 'Prop Pivot/Hub Points'; %#ok<AGROW>
+        legend_labels{end + 1} = 'Rotor Hub Points'; %#ok<AGROW>
     end
 end
 
 if opts.show_vectors
-    hAeroNormal = localPlotSurfaceNormals(surfaces, opts.normal_scale, opts.show_labels, label_sizes);
+    hAeroNormal = localPlotSurfaceNormals(surface_normal_specs, opts.normal_scale, opts.show_labels, label_sizes);
     hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels, label_sizes);
     [hFrontThrust, hRearThrust] = localPlotThrustVectors( ...
         frontSpecs, rearSpecs, opts.thrust_scale, opts.show_labels, label_sizes);
-    localPrintVectorSummary(surfaces, frontSpecs, rearSpecs);
-    localPrintControlSummary(ruddervator_state, flaperon_state, control_surface_specs);
     if ~isempty(hControlNormal) && isgraphics(hControlNormal)
         legend_handles(end + 1) = hControlNormal; %#ok<AGROW>
         legend_labels{end + 1} = 'Control Surface Normals'; %#ok<AGROW>
@@ -248,9 +281,15 @@ if opts.show_vectors
     end
 end
 
-if ~isempty(legend_handles)
+if opts.print_summary
+    localPrintPoseSummary(body_pose, front_tilts_deg);
+    localPrintVectorSummary(surface_normal_specs, frontSpecs, rearSpecs);
+    localPrintSurfaceSummary(surface_deflections, control_surface_specs);
+end
+
+if opts.show_legend && ~isempty(legend_handles)
     legend(legend_handles, legend_labels, ...
-        'TextColor', 'w', 'Color', 'none', 'Location', 'best');
+        'TextColor', theme.text_color, 'Color', 'none', 'Location', 'best');
 end
 
 view(130, 25);
@@ -259,41 +298,47 @@ lighting flat;
 hold off;
 end
 
-function [tilt_angle, thrust_tilt_deg, title_text, extra_args] = ...
-    localResolveRenderPreset(args)
+function [request, extra_args] = localResolveRenderPreset(args)
 preset_name = char(string(args{1}));
 extra_args = args(2:end);
 
+request = struct( ...
+    'tilt_angle', 90, ...
+    'thrust_tilt_deg', 90 * ones(6, 1), ...
+    'body_eul', zeros(3, 1), ...
+    'title_text', '');
+
 switch lower(strtrim(preset_name))
     case 'hover'
-        tilt_angle = 0;
-        thrust_tilt_deg = zeros(6, 1);
-        title_text = 'Brown eVTOL Aircraft (Preset: Hover)';
+        request.tilt_angle = 0;
+        request.thrust_tilt_deg = zeros(6, 1);
+        request.title_text = 'Brown eVTOL Aircraft (Preset: Hover)';
 
     case 'cruise'
-        tilt_angle = 90;
-        thrust_tilt_deg = 90 * ones(6, 1);
-        title_text = 'Brown eVTOL Aircraft (Preset: Cruise)';
+        request.tilt_angle = 90;
+        request.thrust_tilt_deg = 90 * ones(6, 1);
+        request.title_text = 'Brown eVTOL Aircraft (Preset: Cruise)';
 
     case 'transition'
-        tilt_angle = 45;
+        request.tilt_angle = 45;
         if ~isempty(extra_args) && isnumeric(extra_args{1}) && isscalar(extra_args{1})
-            tilt_angle = extra_args{1};
+            request.tilt_angle = extra_args{1};
             extra_args = extra_args(2:end);
         end
-        thrust_tilt_deg = tilt_angle * ones(6, 1);
-        title_text = sprintf('Brown eVTOL Aircraft (Preset: Transition %.1f deg)', ...
-            tilt_angle);
+        request.thrust_tilt_deg = request.tilt_angle * ones(6, 1);
+        request.title_text = sprintf('Brown eVTOL Aircraft (Preset: Transition %.1f deg)', ...
+            request.tilt_angle);
 
     otherwise
         scenario = scenario_def(preset_name);
-        tilt_angle = scenario.visual_tilt_deg;
-        thrust_tilt_deg = scenario.Tilt_angles;
-        title_text = sprintf('Brown eVTOL Aircraft (Scenario: %s)', scenario.name);
+        request.tilt_angle = scenario.visual_tilt_deg;
+        request.thrust_tilt_deg = scenario.Tilt_angles;
+        request.body_eul = scenario.eul_init;
+        request.title_text = sprintf('Brown eVTOL Aircraft (Scenario: %s)', scenario.name);
 end
 
 if localHasOption(extra_args, 'title_text')
-    title_text = '';
+    request.title_text = '';
 end
 end
 
@@ -312,6 +357,56 @@ for idx = 1:2:numel(args)
         tf = true;
         return;
     end
+end
+end
+
+function theme = localResolveRenderTheme(theme_name)
+theme_name = lower(strtrim(char(string(theme_name))));
+
+theme = struct( ...
+    'figure_color', [0.10 0.10 0.10], ...
+    'axes_color', [0.15 0.15 0.15], ...
+    'axis_color', [1.0 1.0 1.0], ...
+    'text_color', [1.0 1.0 1.0], ...
+    'grid_color', [0.55 0.55 0.55], ...
+    'grid_alpha', 0.22, ...
+    'cg_face_color', [1.0 1.0 1.0], ...
+    'cg_edge_color', [1.0 1.0 1.0]);
+
+switch theme_name
+    case {'report', 'white', 'light'}
+        theme.figure_color = [1.0 1.0 1.0];
+        theme.axes_color = [1.0 1.0 1.0];
+        theme.axis_color = [0.10 0.10 0.10];
+        theme.text_color = [0.10 0.10 0.10];
+        theme.grid_color = [0.70 0.70 0.70];
+        theme.grid_alpha = 0.28;
+        theme.cg_face_color = [1.0 1.0 1.0];
+        theme.cg_edge_color = [0.10 0.10 0.10];
+end
+end
+
+function visible_mode = localResolveVisibleMode(value)
+if islogical(value) || isnumeric(value)
+    if value
+        visible_mode = 'on';
+    else
+        visible_mode = 'off';
+    end
+    return;
+end
+
+visible_mode = lower(strtrim(char(string(value))));
+if ~ismember(visible_mode, {'on', 'off'})
+    visible_mode = 'on';
+end
+end
+
+function value = localOnOff(tf)
+if tf
+    value = 'on';
+else
+    value = 'off';
 end
 end
 
@@ -342,75 +437,109 @@ for idx = 2:numel(surfaceInput)
 end
 end
 
-function [delta_e_rad, delta_r_rad, delta_f_rad, delta_a_rad] = localResolveControlInputs(opts)
-delta_e_rad = opts.delta_e + deg2rad(opts.delta_e_deg);
-delta_r_rad = opts.delta_r + deg2rad(opts.delta_r_deg);
-delta_f_rad = opts.delta_f + deg2rad(opts.delta_f_deg);
-delta_a_rad = opts.delta_a + deg2rad(opts.delta_a_deg);
+function state = localResolveSurfaceDeflections(opts)
+state = struct('deltaLW', 0, 'deltaRW', 0, 'deltaLT', 0, 'deltaRT', 0);
+
+if ~isempty(opts.surface_deflections)
+    state = localMergeSurfaceDeflections(state, opts.surface_deflections, false);
+end
+if ~isempty(opts.surface_deflections_deg)
+    state = localMergeSurfaceDeflections(state, opts.surface_deflections_deg, true);
+end
 end
 
-function state = localRuddervatorState(controls, delta_e_rad, delta_r_rad)
-state = struct( ...
-    'enabled', false, ...
-    'chord_fraction', 0.30, ...
-    'left_deflection_rad', 0, ...
-    'right_deflection_rad', 0, ...
-    'label', 'Ruddervators');
-
-if ~isfield(controls, 'ruddervator') || isempty(controls.ruddervator)
+function state = localMergeSurfaceDeflections(state, deflections, use_degrees)
+if isstruct(deflections)
+    field_names = {'deltaLW', 'deltaRW', 'deltaLT', 'deltaRT'};
+    for idx = 1:numel(field_names)
+        field_name = field_names{idx};
+        if isfield(deflections, field_name) && ~isempty(deflections.(field_name))
+            value = deflections.(field_name);
+            value = localAsScalar(value, 'render_aircraft:BadSurfaceDeflection', ...
+                'Surface-deflection struct fields must be scalar values.');
+            if use_degrees
+                value = deg2rad(value);
+            end
+            state.(field_name) = value;
+        end
+    end
     return;
 end
 
-state.enabled = true;
-if isfield(controls.ruddervator, 'control_chord_fraction')
-    state.chord_fraction = controls.ruddervator.control_chord_fraction;
+values = localAsColumn(deflections, 4, 'render_aircraft:BadSurfaceDeflection', ...
+    'Surface deflections must be a 4-element vector in [deltaLW; deltaRW; deltaLT; deltaRT] order.');
+if use_degrees
+    values = deg2rad(values);
 end
 
-mix = [1, -1; 1, 1];
-if isfield(controls.ruddervator, 'mix_from_standard') && ...
-        isequal(size(controls.ruddervator.mix_from_standard), [2, 2])
-    mix = controls.ruddervator.mix_from_standard;
+state.deltaLW = values(1);
+state.deltaRW = values(2);
+state.deltaLT = values(3);
+state.deltaRT = values(4);
 end
 
-deflections = mix * [delta_e_rad; delta_r_rad];
-if isfield(controls.ruddervator, 'max_deflection_rad') && ~isempty(controls.ruddervator.max_deflection_rad)
-    deflections = max(min(deflections, controls.ruddervator.max_deflection_rad), ...
-        -controls.ruddervator.max_deflection_rad);
-end
-state.left_deflection_rad = deflections(1);
-state.right_deflection_rad = deflections(2);
-end
-
-function state = localFlaperonState(controls, delta_f_rad, delta_a_rad)
-state = struct( ...
-    'enabled', false, ...
-    'chord_fraction', 0.28, ...
-    'left_deflection_rad', 0, ...
-    'right_deflection_rad', 0, ...
-    'label', 'Flaperons');
-
-if ~isfield(controls, 'flaperon') || isempty(controls.flaperon)
+function front_tilts_deg = localResolveFrontTiltVector(thrust_tilt_deg, default_tilt_deg)
+if isempty(thrust_tilt_deg)
+    front_tilts_deg = default_tilt_deg * ones(6, 1);
     return;
 end
 
-state.enabled = true;
-if isfield(controls.flaperon, 'control_chord_fraction')
-    state.chord_fraction = controls.flaperon.control_chord_fraction;
+if isscalar(thrust_tilt_deg)
+    front_tilts_deg = thrust_tilt_deg * ones(6, 1);
+    return;
 end
 
-mix = [1, 1; 1, -1];
-if isfield(controls.flaperon, 'mix_from_standard') && ...
-        isequal(size(controls.flaperon.mix_from_standard), [2, 2])
-    mix = controls.flaperon.mix_from_standard;
+values = thrust_tilt_deg(:);
+switch numel(values)
+    case 2
+        front_tilts_deg = [ ...
+            values(1) * ones(3, 1); ...
+            values(2) * ones(3, 1)];
+    case 6
+        front_tilts_deg = values;
+    otherwise
+        error('render_aircraft:BadFrontTilt', ...
+            ['thrust_tilt_deg must be a scalar, 2-element vector [FR; FL], ' ...
+             'or 6-element vector [FR1; FR2; FR3; FL1; FL2; FL3].']);
+end
 end
 
-deflections = mix * [delta_f_rad; delta_a_rad];
-if isfield(controls.flaperon, 'max_deflection_rad') && ~isempty(controls.flaperon.max_deflection_rad)
-    deflections = max(min(deflections, controls.flaperon.max_deflection_rad), ...
-        -controls.flaperon.max_deflection_rad);
+function pose = localResolveBodyPose(opts, CG)
+pose = struct();
+pose.eul = zeros(3, 1);
+if ~isempty(opts.body_eul)
+    pose.eul = localAsColumn(opts.body_eul, 3, ...
+        'render_aircraft:BadBodyEuler', ...
+        'body_eul must be a 3-element [phi; theta; psi] vector in radians.');
 end
-state.left_deflection_rad = deflections(1);
-state.right_deflection_rad = deflections(2);
+if ~isempty(opts.body_eul_deg)
+    pose.eul = deg2rad(localAsColumn(opts.body_eul_deg, 3, ...
+        'render_aircraft:BadBodyEuler', ...
+        'body_eul_deg must be a 3-element [phi; theta; psi] vector in degrees.'));
+end
+
+pose.position = CG;
+if ~isempty(opts.body_pos)
+    pose.position = localAsColumn(opts.body_pos, 3, ...
+        'render_aircraft:BadBodyPosition', ...
+        'body_pos must be a 3-element vector representing the CG position.');
+end
+
+pose.R = localRotationMatrix(pose.eul);
+pose.eul_deg = rad2deg(pose.eul);
+end
+
+function txt = localBuildTitleText(title_input, front_tilt_deg, body_eul_deg)
+if isstring(title_input)
+    title_input = char(title_input);
+end
+
+if isempty(title_input)
+    title_input = 'Brown eVTOL Aircraft';
+end
+
+txt = sprintf('%s\nBody Euler [deg]: [%.1f %.1f %.1f] | Front tilt: %.1f deg', ...
+    title_input, body_eul_deg(1), body_eul_deg(2), body_eul_deg(3), front_tilt_deg);
 end
 
 function color = localComponentColor(name, type)
@@ -433,29 +562,31 @@ else
 end
 end
 
-function deflection_rad = localTailDeflection(name, state)
-deflection_rad = 0;
-if ~state.enabled
-    return;
-end
-
-if contains(name, 'L V-Tail')
-    deflection_rad = state.left_deflection_rad;
-elseif contains(name, 'R V-Tail')
-    deflection_rad = state.right_deflection_rad;
+function control_chord_fraction = localTailControlChordFraction(controls)
+control_chord_fraction = 0.30;
+if isfield(controls, 'ruddervator') && isfield(controls.ruddervator, 'control_chord_fraction')
+    control_chord_fraction = controls.ruddervator.control_chord_fraction;
 end
 end
 
-function deflection_rad = localWingDeflection(name, state)
-deflection_rad = 0;
-if ~state.enabled
-    return;
+function control_chord_fraction = localWingControlChordFraction(controls)
+control_chord_fraction = 0.28;
+if isfield(controls, 'flaperon') && isfield(controls.flaperon, 'control_chord_fraction')
+    control_chord_fraction = controls.flaperon.control_chord_fraction;
+end
 end
 
+function deflection_rad = localSurfaceDeflection(name, state)
 if contains(name, 'L Main Wing')
-    deflection_rad = state.left_deflection_rad;
+    deflection_rad = state.deltaLW;
 elseif contains(name, 'R Main Wing')
-    deflection_rad = state.right_deflection_rad;
+    deflection_rad = state.deltaRW;
+elseif contains(name, 'L V-Tail')
+    deflection_rad = state.deltaLT;
+elseif contains(name, 'R V-Tail')
+    deflection_rad = state.deltaRT;
+else
+    deflection_rad = 0;
 end
 end
 
@@ -489,13 +620,8 @@ end
 pivot = [1.95, fallback_pos(2), -0.45];
 end
 
-function tilt_deg = localFrontComponentTilt(name, default_tilt_deg, thrust_tilt_deg)
+function tilt_deg = localFrontComponentTilt(name, front_tilts_deg, default_tilt_deg)
 tilt_deg = default_tilt_deg;
-
-if isempty(thrust_tilt_deg) || numel(thrust_tilt_deg) ~= 6
-    return;
-end
-
 tokens = regexp(name, 'F-(?:Arm|Rotor) ([LR])([123])', 'tokens', 'once');
 if isempty(tokens)
     return;
@@ -504,9 +630,9 @@ end
 side = tokens{1};
 index = str2double(tokens{2});
 if side == 'R'
-    tilt_deg = thrust_tilt_deg(index);
+    tilt_deg = front_tilts_deg(index);
 else
-    tilt_deg = thrust_tilt_deg(index + 3);
+    tilt_deg = front_tilts_deg(index + 3);
 end
 end
 
@@ -514,22 +640,19 @@ function dir_vec = localThrustDirection(tilt_deg)
 dir_vec = [sind(tilt_deg), 0, -cosd(tilt_deg)];
 end
 
-function specs = localFrontRotorSpecs(prop, thrust_tilt_deg, default_tilt_deg)
+function specs = localFrontRotorSpecs(prop, front_tilts_deg)
 specs = struct('name', {}, 'hub', {}, 'dir', {}, 'tilt_deg', {});
-if ~isfield(prop, 'posFR') || ~isfield(prop, 'posFL') || ~isfield(prop, 'hub_offset')
+if ~isfield(prop, 'posFR') || ~isfield(prop, 'posFL')
     return;
 end
 
-right_tilts = default_tilt_deg * ones(3, 1);
-left_tilts = default_tilt_deg * ones(3, 1);
-if numel(thrust_tilt_deg) == 6
-    right_tilts = thrust_tilt_deg(1:3);
-    left_tilts = thrust_tilt_deg(4:6);
-end
+hub_offset = localHubOffset(prop);
+right_tilts = front_tilts_deg(1:3);
+left_tilts = front_tilts_deg(4:6);
 
 specs = [ ...
-    localBuildFrontGroupSpecs(prop.posFR, prop.hub_offset, right_tilts, 'FR'); ...
-    localBuildFrontGroupSpecs(prop.posFL, prop.hub_offset, left_tilts, 'FL')];
+    localBuildFrontGroupSpecs(prop.posFR, hub_offset, right_tilts, 'FR'); ...
+    localBuildFrontGroupSpecs(prop.posFL, hub_offset, left_tilts, 'FL')];
 end
 
 function specs = localBuildFrontGroupSpecs(pivots, hub_offset, tilts_deg, prefix)
@@ -565,11 +688,39 @@ for idx = 1:size(hubs, 1)
 end
 end
 
-function [hAeroInput, hPropInput] = localPlotInputMarkers(surfaces, prop)
+function surfaces_world = localTransformSurfaceData(surfaces, body_pose, CG)
+surfaces_world = surfaces;
+for idx = 1:numel(surfaces)
+    pos_world = localApplyBodyPose(surfaces(idx).pos(:)', body_pose, CG);
+    n_world = localRotateDirection(surfaces(idx).n(:), body_pose);
+    surfaces_world(idx).pos = pos_world(:)';
+    surfaces_world(idx).n = n_world(:)';
+end
+end
+
+function specs_world = localTransformRotorSpecs(specs, body_pose, CG)
+specs_world = specs;
+for idx = 1:numel(specs)
+    specs_world(idx).hub = localApplyBodyPose(specs(idx).hub, body_pose, CG);
+    specs_world(idx).dir = localRotateDirection(specs(idx).dir(:), body_pose).';
+end
+end
+
+function points_world = localApplyBodyPose(points_body, body_pose, CG)
+points_body = localAsPointRows(points_body);
+CG_row = CG(:).';
+points_world = (body_pose.R * (points_body - CG_row)')' + body_pose.position(:).';
+end
+
+function dir_world = localRotateDirection(dir_body, body_pose)
+dir_world = body_pose.R * dir_body(:);
+dir_world = dir_world / max(norm(dir_world), eps);
+end
+
+function [hAeroInput, hPropInput] = localPlotInputMarkers(surfaces, frontSpecs, rearSpecs)
 hAeroInput = [];
 hPropInput = [];
 
-disp('Plotting verification markers for block inputs...');
 for idx = 1:numel(surfaces)
     surf = surfaces(idx);
     h = plot3(surf.pos(1), surf.pos(2), surf.pos(3), ...
@@ -579,14 +730,10 @@ for idx = 1:numel(surfaces)
     end
 end
 
-prop_fields = {'posFR', 'posFL', 'posRR', 'posRL'};
-for idx = 1:numel(prop_fields)
-    field_name = prop_fields{idx};
-    if ~isfield(prop, field_name) || isempty(prop.(field_name))
-        continue;
-    end
-
-    h = plot3(prop.(field_name)(:,1), prop.(field_name)(:,2), prop.(field_name)(:,3), ...
+rotor_specs = [frontSpecs(:); rearSpecs(:)];
+for idx = 1:numel(rotor_specs)
+    spec = rotor_specs(idx);
+    h = plot3(spec.hub(1), spec.hub(2), spec.hub(3), ...
         'co', 'MarkerSize', 8, 'LineWidth', 2);
     if isempty(hPropInput)
         hPropInput = h;
@@ -684,6 +831,14 @@ label_sizes = struct( ...
     'control', max(6, 9 * scale));
 end
 
+function localPrintPoseSummary(body_pose, front_tilts_deg)
+fprintf('Body Euler [deg] = [%6.2f %6.2f %6.2f]\n', ...
+    body_pose.eul_deg(1), body_pose.eul_deg(2), body_pose.eul_deg(3));
+fprintf('CG position       = [%6.2f %6.2f %6.2f]\n', ...
+    body_pose.position(1), body_pose.position(2), body_pose.position(3));
+fprintf('Front tilts [deg] = [%6.2f %6.2f %6.2f %6.2f %6.2f %6.2f]\n', front_tilts_deg);
+end
+
 function localPrintVectorSummary(surfaces, frontSpecs, rearSpecs)
 disp('Aero surface normal vectors:');
 for idx = 1:numel(surfaces)
@@ -709,18 +864,12 @@ for idx = 1:numel(rearSpecs)
 end
 end
 
-function localPrintControlSummary(ruddervator_state, flaperon_state, specs)
-if ~ruddervator_state.enabled && ~flaperon_state.enabled
-    return;
-end
-
-disp('Ruddervator deflections:');
-fprintf('  L tail ruddervator = %6.2f deg\n', rad2deg(ruddervator_state.left_deflection_rad));
-fprintf('  R tail ruddervator = %6.2f deg\n', rad2deg(ruddervator_state.right_deflection_rad));
-
-disp('Flaperon deflections:');
-fprintf('  L wing flaperon   = %6.2f deg\n', rad2deg(flaperon_state.left_deflection_rad));
-fprintf('  R wing flaperon   = %6.2f deg\n', rad2deg(flaperon_state.right_deflection_rad));
+function localPrintSurfaceSummary(surface_deflections, specs)
+disp('Local surface deflections:');
+fprintf('  L wing = %6.2f deg\n', rad2deg(surface_deflections.deltaLW));
+fprintf('  R wing = %6.2f deg\n', rad2deg(surface_deflections.deltaRW));
+fprintf('  L tail = %6.2f deg\n', rad2deg(surface_deflections.deltaLT));
+fprintf('  R tail = %6.2f deg\n', rad2deg(surface_deflections.deltaRT));
 
 if isempty(specs)
     return;
@@ -785,8 +934,6 @@ control_chord_fraction = min(max(control_chord_fraction, 0.05), 0.95);
 ctrl_chord = chord * control_chord_fraction;
 fixed_chord = chord - ctrl_chord;
 
-% Positive x is forward in this model, so the control surface belongs on
-% the aft/trailing-edge side, which is the negative-x side.
 [V_fixed, F_fixed] = genCleanBox(fixed_chord, span, thickness);
 V_fixed(:, 1) = V_fixed(:, 1) + 0.5 * ctrl_chord;
 
@@ -798,11 +945,10 @@ R_deflect = localRotationMatrix([0, deflection_rad, 0]);
 V_ctrl = (R_deflect * (V_ctrl - hinge_local)')' + hinge_local;
 end
 
-function spec = localBuildControlSurfaceSpec(name, eul, V_ctrl_trans, deflection_rad, kind)
-R_surface = localRotationMatrix(eul);
-R_deflect = localRotationMatrix([0, deflection_rad, 0]);
-dir_vec = R_surface * R_deflect * [0; 0; -1];
-dir_vec = dir_vec / max(norm(dir_vec), eps);
+function spec = localBuildControlSurfaceSpec(name, R_comp, V_ctrl_body, body_pose, CG, deflection_rad, kind)
+dir_body = R_comp * localRotationMatrix([0, deflection_rad, 0]) * [0; 0; -1];
+dir_world = localRotateDirection(dir_body, body_pose);
+pos_world = mean(localApplyBodyPose(V_ctrl_body, body_pose, CG), 1);
 
 spec = struct();
 if strcmp(kind, 'flaperon')
@@ -810,8 +956,8 @@ if strcmp(kind, 'flaperon')
 else
     spec.name = localShortTailName(name);
 end
-spec.pos = mean(V_ctrl_trans, 1);
-spec.dir = dir_vec(:)';
+spec.pos = pos_world;
+spec.dir = dir_world(:)';
 spec.deflection_deg = rad2deg(deflection_rad);
 spec.kind = kind;
 end
@@ -824,6 +970,45 @@ Rx = [1 0 0; 0 cos(phi) -sin(phi); 0 sin(phi) cos(phi)];
 Ry = [cos(theta) 0 sin(theta); 0 1 0; -sin(theta) 0 cos(theta)];
 Rz = [cos(psi) -sin(psi) 0; sin(psi) cos(psi) 0; 0 0 1];
 R = Rz * Ry * Rx;
+end
+
+function values = localAsColumn(value, expected_count, err_id, err_msg)
+if ~isnumeric(value)
+    error(err_id, err_msg);
+end
+values = value(:);
+if numel(values) ~= expected_count
+    error(err_id, err_msg);
+end
+end
+
+function value = localAsScalar(value, err_id, err_msg)
+if ~isnumeric(value) || numel(value) ~= 1
+    error(err_id, err_msg);
+end
+value = double(value);
+end
+
+function value = localAsColumn3(value, err_id, err_msg)
+value = localAsColumn(value, 3, err_id, err_msg);
+end
+
+function points = localAsPointRows(points)
+if isempty(points)
+    points = zeros(0, 3);
+    return;
+end
+if ~isnumeric(points)
+    error('render_aircraft:BadPointData', 'Point data must be numeric.');
+end
+if size(points, 2) == 3
+    return;
+end
+if size(points, 1) == 3
+    points = points.';
+    return;
+end
+error('render_aircraft:BadPointData', 'Point data must have three columns.');
 end
 
 function [V, F] = genCleanBox(L, W, H)

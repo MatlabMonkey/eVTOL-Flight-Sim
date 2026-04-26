@@ -1,108 +1,100 @@
-# eVTOL-Flight-Sim
+# eVTOL_Simulation
 
-Simulink-based eVTOL flight simulation workspace containing full-system models, initialization scripts, and FlightGear integration assets.
+Last reviewed: 2026-04-25 20:48 PDT
 
-## Project overview
+This is the active Six-DoF eVTOL simulation workspace. Use this folder, not
+the legacy material outside it.
 
-This repository provides a Brown eVTOL simulation stack centered around Simulink models:
+## Start Here
 
-- full vehicle simulation models (`Brown_Full_Sim*.slx`)
-- controls library model (`Brown_Flight_Controls_lib.slx`)
-- initialization/configuration script (`Full_Sim_Init.m`)
-- FlightGear support content (`Flight_Gear/`)
-- tester/reference artifacts (`TESTER_*` and documentation PDFs/MLX)
-
-The goal is to enable repeatable simulation setup and quick validation of model health before deeper controls or dynamics work.
-
-## MATLAB/toolbox assumptions
-
-Tested/expected environment assumptions:
-
-- MATLAB with Simulink installed
-- Ability to open/compile `.slx` models
-- Script execution permissions for `Full_Sim_Init.m`
-
-Commonly required for model execution (depending on local setup):
-
-- Simulink
-- Aerospace/controls-related toolboxes used by the model
-- FlightGear (optional; only for external visualization workflows)
-
-If your installation is missing a required product, MATLAB will report the missing dependency at load/update/compile time.
-
-## Quick start
-
-1. Clone and enter the repository:
-   ```bash
-   git clone <repo-url>
-   cd eVTOL-Flight-Sim
-   ```
-2. Open MATLAB in this repository root.
-3. Run initialization:
-   ```matlab
-   Full_Sim_Init
-   ```
-4. Open your target model (for example):
-   ```matlab
-   open_system('Brown_Full_Sim')
-   ```
-
-## Main workflow
-
-The current recommended workflow for new trim/run studies lives in:
-
-- [`scripts/main_workflow/README.md`](scripts/main_workflow/README.md)
-
-That path uses:
-
-- `Brown_6DOF_Init_main.m` as the only init script
-- a copied trim backend under `scripts/main_workflow/models/`
-- a copied run backend under `scripts/main_workflow/models/`
-
-Start there if you want the clean grouped-command workflow rather than the older wrapper/helper chain.
-
-## Smoke test (headless-friendly)
-
-A minimal non-GUI sanity check is provided:
-
-```matlab
-run('scripts/smoke_test.m')
-```
-
-The smoke test validates:
-
-- expected key files are present
-- `Full_Sim_Init.m` executes
-- a representative model (`Brown_Full_Sim`) can be loaded and updated/compiled headlessly
-
-It prints explicit markers:
-
-- `SMOKE_TEST: PASS`
-- `SMOKE_TEST: FAIL`
-
-Use this as a pre-commit or pre-PR confidence check.
-
-## Repository structure
+The current workflow is:
 
 ```text
-.
-├── README.md
-├── CHANGELOG.md
-├── Full_Sim_Init.m
-├── Brown_Full_Sim.slx
-├── Brown_Full_Sim_FlightGear.slx
-├── Brown_Flight_Controls_lib.slx
-├── TESTER_Brown_Full_Sim.slx
-├── TESTER_external_forces.mlx
-├── BROWN_TESTER_external_forces.pdf
-├── render_aircraft.m
-├── scripts/
-│   └── smoke_test.m
-└── Flight_Gear/
-    └── ...
+Init_Main
+-> Trim_Main or TrimSearch_Run
+-> TrimDB_Build
+-> build_corridor_lqr_controller
+-> Run_Main
 ```
 
-## Notes
+Most users only need these files:
 
-- Prefer running the smoke test before modifying controls/dynamics content.
-- Keep generated artifacts out of git (see `.gitignore`).
+- `Init_Main.m`: initialize the workspace.
+- `Trim_Main.m`: solve one explicit trim case.
+- `TrimSearch_Run.m`: search for transition trim points.
+- `TrimDB_Build.m`: rebuild the master/controller trim databases.
+- `TrimDB_Plot.m`: plot trim database coverage.
+- `Run_Main.m`: prepare and optionally run `Wrapper.slx`.
+
+## Common Tasks
+
+### Initialize
+
+```matlab
+cd('/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/eVTOL_Simulation')
+Init_Main
+```
+
+### Run A Transition Trim Search
+
+```matlab
+Init_Main
+transitionTrimSearchOptions = struct('profile', 'low_speed', 'target_limit', 20);
+TrimSearch_Run
+TrimDB_Build
+```
+
+Useful profiles:
+
+- `guide_grid`: default transition search.
+- `low_speed`: near-hover / low-speed search with physics-based seeds.
+- `bridge`: fills gaps between known-good points.
+- `blueband`: focused bridge-region search.
+
+### Build/Use Controller Data
+
+The controller workflow expects `databases/controller_schedule.*`.
+
+```matlab
+TrimDB_Build
+controllerData = build_corridor_lqr_controller();
+Run_Main
+```
+
+Durable trim/controller data lives in `databases/`. The clean handoff keeps
+`trim_attempts.*` and `controller_schedule.*` there. Generated plots, previews,
+and optional debug run folders live in `workspace_plots/`.
+
+If `databases/controller_schedule.mat` is missing, restore the database
+files or regenerate them with `TrimSearch_Run` and `TrimDB_Build`.
+
+## Models
+
+The active Simulink source models are:
+
+- `Plant.slx`
+- `Trim_Plant.slx`
+- `Wrapper.slx`
+- `eVTOL_lib.slx`
+
+## Documentation
+
+Read in this order:
+
+1. `README.md`: quick start and current file names.
+2. `TRIM_DATABASES.md`: how trim/search/controller databases work.
+3. `docs/EV_SIMULATION_WORKFLOW_MAP.md`: workflow-level architecture.
+4. `docs/EV_SIMULATION_DEPENDENCY_MAP.md`: file dependencies and rename table.
+5. `docs/CONTROL_SUMMARY_AND_STATUS_2026-04-25.md`: current control status.
+
+Historical or deep-reference docs are marked as such. Do not start with them.
+
+## Do Not Use As Current Workflow
+
+- `cases/*`
+- `Run_EVTOL_Suite.m`
+- `Trim_EVTOL_Sweep.m`
+- `Build_Controller_EVTOL_Cruise.m`
+- per-run `*_latest.csv/.mat/.md` files as source-of-truth handoffs
+
+Those paths are legacy/historical. The current workflow is database-centered.

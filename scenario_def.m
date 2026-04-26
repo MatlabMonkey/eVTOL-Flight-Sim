@@ -5,7 +5,9 @@ if nargin < 1 || isempty(test_case)
     test_case = 'Stable_6DOF';
 end
 
-Motor_RPMs = zeros(12, 1);
+% TODO: scenario/run path is being migrated from legacy 12x1 per-prop RPM
+% commands to grouped 4x1 motor RPM commands [FR; FL; RR; RL].
+Motor_RPMs = zeros(4, 1);
 Tilt_angles = zeros(6, 1);
 Fext_B = [0; 0; 0];
 Mext_B = [0; 0; 0];

@@ -1,1 +1,0 @@
-This is an example of a working conventional aircraft sim that I want to use for reference when trimming the aircraft and designing the LQR/LQT controller. 
