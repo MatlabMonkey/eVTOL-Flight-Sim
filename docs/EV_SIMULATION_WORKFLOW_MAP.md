@@ -1,6 +1,6 @@
-# eVTOL_Simulation Workflow Map
+# eVTOL Flight Sim Workflow Map
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:48 PDT
 
 This is the simple architecture map for the active workflow. For file-level
 dependencies and old-to-new filenames, see `docs/EV_SIMULATION_DEPENDENCY_MAP.md`.
@@ -9,7 +9,6 @@ dependencies and old-to-new filenames, see `docs/EV_SIMULATION_DEPENDENCY_MAP.md
 
 ```text
 Init_Main
-  -> Full_Sim_Init
   -> initData
 
 Single trim:

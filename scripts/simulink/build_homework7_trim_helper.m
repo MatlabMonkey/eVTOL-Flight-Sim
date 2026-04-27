@@ -1,0 +1,89 @@
+function modelName = build_homework7_trim_helper(varargin)
+%BUILD_HOMEWORK7_TRIM_HELPER Build the grouped-input trim helper model.
+
+p = inputParser;
+p.addParameter('ModelName', 'Brown_Homework7_Trim_Helper', @(s) ischar(s) || isstring(s));
+p.parse(varargin{:});
+
+modelName = char(p.Results.ModelName);
+repoRoot = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+modelPath = fullfile(repoRoot, [modelName '.slx']);
+
+if bdIsLoaded(modelName)
+    close_system(modelName, 0);
+end
+if exist(modelPath, 'file')
+    delete(modelPath);
+end
+
+new_system(modelName);
+set_param(modelName, ...
+    'StopTime', '1', ...
+    'SolverType', 'Variable-step', ...
+    'Solver', 'ode45', ...
+    'SaveOutput', 'off', ...
+    'SaveTime', 'off');
+
+inNames = { ...
+    'alpha_rad', 'beta_rad', 'r_rad_s', 'front_collective_rpm', ...
+    'rear_collective_rpm', 'delta_a_rad', 'delta_e_rad', 'delta_r_rad'};
+inY = 50:60:470;
+for i = 1:numel(inNames)
+    add_block('simulink/Sources/In1', [modelName '/' inNames{i}], ...
+        'Position', [30 inY(i) 60 inY(i)+20], ...
+        'Port', num2str(i));
+end
+
+constSpecs = { ...
+    'trim_target_speed_mps', 'trim_target_speed_mps', 50; ...
+    'trim_target_bank_deg', 'trim_target_bank_deg', 110; ...
+    'trim_cruise_tilt_deg', 'trim_cruise_tilt_deg', 170};
+for i = 1:size(constSpecs, 1)
+    add_block('simulink/Sources/Constant', [modelName '/' constSpecs{i,1}], ...
+        'Value', constSpecs{i,2}, ...
+        'Position', [30 constSpecs{i,3} 140 constSpecs{i,3}+25]);
+end
+
+add_block('simulink/Signal Routing/Mux', [modelName '/TrimInputMux'], ...
+    'Inputs', '11', ...
+    'Position', [180 110 185 430]);
+
+add_block('simulink/Sources/Constant', [modelName '/zero_state_drive'], ...
+    'Value', '0', ...
+    'Position', [180 470 220 495]);
+add_block('simulink/Continuous/Integrator', [modelName '/DummyState'], ...
+    'InitialCondition', '0', ...
+    'Position', [260 468 290 502]);
+add_block('simulink/Sinks/Terminator', [modelName '/DummyStateTerminator'], ...
+    'Position', [340 475 360 495]);
+
+labels = { ...
+    'ax_resid', 'ay_resid', 'az_resid', 'mx_resid', ...
+    'my_resid', 'mz_resid', 'turn_rate_resid'};
+blockY = 50:60:410;
+for i = 1:numel(labels)
+    fcnBlk = [modelName '/Residual_' labels{i}];
+    add_block('simulink/User-Defined Functions/Interpreted MATLAB Function', fcnBlk, ...
+        'MATLABFcn', sprintf('trim_residual_component(u,%d)', i), ...
+        'Position', [260 blockY(i) 420 blockY(i)+30]);
+    add_block('simulink/Sinks/Out1', [modelName '/' labels{i}], ...
+        'Position', [500 blockY(i)+5 530 blockY(i)+25], ...
+        'Port', num2str(i));
+end
+
+for i = 1:numel(inNames)
+    add_line(modelName, [inNames{i} '/1'], sprintf('TrimInputMux/%d', i), 'autorouting', 'on');
+end
+for i = 1:size(constSpecs, 1)
+    add_line(modelName, [constSpecs{i,1} '/1'], sprintf('TrimInputMux/%d', numel(inNames)+i), 'autorouting', 'on');
+end
+for i = 1:numel(labels)
+    add_line(modelName, 'TrimInputMux/1', ['Residual_' labels{i} '/1'], 'autorouting', 'on');
+    add_line(modelName, ['Residual_' labels{i} '/1'], [labels{i} '/1'], 'autorouting', 'on');
+end
+add_line(modelName, 'zero_state_drive/1', 'DummyState/1', 'autorouting', 'on');
+add_line(modelName, 'DummyState/1', 'DummyStateTerminator/1', 'autorouting', 'on');
+
+save_system(modelName, modelPath);
+close_system(modelName, 0);
+end

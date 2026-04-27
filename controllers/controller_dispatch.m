@@ -3,6 +3,7 @@ function [motor_rpm_cmd_out, tilt_angles_cmd_out, front_collective_rpm_out, rear
     airData_cmd, eul_cmd, gps_Pos_cmd, omega_cmd, accel_cmd, ...
     motor_rpm_cmd, tilt_angles_cmd, front_collective_rpm, rear_collective_rpm, ...
     airData_meas, eul_meas, gps_Pos_meas, omega_meas, accel_meas, ...
+    actuator_state_meas, angular_accel_meas, ...
     controller_id, x_ref, trim_cmd, K_lqr, surface_limit_rad, ...
     front_collective_min_rpm, front_collective_max_rpm, ...
     rear_collective_min_rpm, rear_collective_max_rpm, mix_matrix)
@@ -10,13 +11,16 @@ function [motor_rpm_cmd_out, tilt_angles_cmd_out, front_collective_rpm_out, rear
 % Wrapper/Controller interface:
 %   Commands     = airData_*, eul_*, gps_Pos_*, omega_*, accel_*
 %   Actuator cmd = motor_rpm_cmd, tilt_angles_cmd, front_collective_rpm, rear_collective_rpm
-%   Measurements = airData_meas, eul_meas, gps_Pos_meas, omega_meas, accel_meas
+%   Measurements = airData_meas, eul_meas, gps_Pos_meas, omega_meas,
+%                  accel_meas, actuator_state_meas, angular_accel_meas
 %
 % Controller core convention:
 %   x_*    = [phi; theta; psi; u; v; w; p; q; r]
 %   trim   = [front_collective_rpm; rear_collective_rpm; delta_f; delta_a; delta_e; delta_r]
 %   K_lqr  = 6x9 and produces
 %            [front_collective_rpm; rear_collective_rpm; delta_f; delta_a; delta_e; delta_r]
+%            For controller_id = 6, this input is repacked as the INDI
+%            schedule described in controller_indi_transition.m.
 %
 % The dispatcher owns:
 %   1. packing command/measurement vectors into the compact controller state,
@@ -34,11 +38,13 @@ rear_collective_rpm_out = local_scalar(rear_collective_rpm);
 trim_cmd_use = local_vec(trim_cmd, 6);
 x_ref_use = local_vec(x_ref, 9);
 x_meas_use = local_pack_state(eul_meas, airData_meas, omega_meas);
+actuator_state_meas_use = local_vec(actuator_state_meas, 10);
+angular_accel_meas_use = local_vec(angular_accel_meas, 3);
 x_cmd_track_use = local_build_longitudinal_tracking_ref(x_ref_use, airData_cmd, eul_cmd, omega_cmd);
 mix_matrix_use = local_mix_matrix(mix_matrix);
 
 K_lqr_use = zeros(6, 9);
-if int32(controller_id) ~= 4 && int32(controller_id) ~= 5
+if int32(controller_id) ~= 4 && int32(controller_id) ~= 5 && int32(controller_id) ~= 6
     K_lqr_use = local_gain(K_lqr, 6);
 end
 
@@ -58,6 +64,14 @@ switch int32(controller_id)
     case 5
         [u_mixed, tilt_sched_deg] = controller_lqr_path_schedule_gated( ...
             airData_cmd, tilt_angles_cmd, x_meas_use, x_ref, trim_cmd, K_lqr);
+        tilt_angles_cmd_out = [tilt_sched_deg; tilt_sched_deg];
+    case 6
+        [u_mixed, tilt_sched_deg] = controller_indi_transition( ...
+            airData_cmd, tilt_angles_cmd, x_meas_use, accel_meas, ...
+            actuator_state_meas_use, angular_accel_meas_use, ...
+            x_ref, trim_cmd, K_lqr, surface_limit_rad, ...
+            front_collective_min_rpm, front_collective_max_rpm, ...
+            rear_collective_min_rpm, rear_collective_max_rpm);
         tilt_angles_cmd_out = [tilt_sched_deg; tilt_sched_deg];
     otherwise
         % Unknown IDs safely fall back to trim hold.

@@ -1,9 +1,15 @@
-# eVTOL_Simulation
+# eVTOL Flight Sim
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:48 PDT
 
-This is the active Six-DoF eVTOL simulation workspace. Use this folder, not
-the legacy material outside it.
+This is the active Six-DoF eVTOL simulation workspace. The current working
+folder is the repo root:
+
+```text
+/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim
+```
+
+Use this folder, not the old nested `eVTOL_Simulation/` layout.
 
 ## Start Here
 
@@ -31,7 +37,7 @@ Most users only need these files:
 ### Initialize
 
 ```matlab
-cd('/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/eVTOL_Simulation')
+cd('/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim')
 Init_Main
 ```
 
@@ -67,6 +73,34 @@ and optional debug run folders live in `workspace_plots/`.
 
 If `databases/controller_schedule.mat` is missing, restore the database
 files or regenerate them with `TrimSearch_Run` and `TrimDB_Build`.
+
+### Plot Aero Polars
+
+```matlab
+Init_Main
+plot_aero_polars
+```
+
+To also save PNGs under `workspace_plots/`:
+
+```matlab
+plot_aero_polars(struct('saveFigures', true))
+```
+
+## Support Assets
+
+Generated aero data lives with the other durable databases:
+
+```text
+databases/aero_polars/final_airfoil_polar_tables.mat
+```
+
+If that file is missing, `Init_Main` will warn and LUT aero blocks will not have
+the generated AVL polar table data. INDI surface-map tools treat this file as
+required and will error instead of generating coefficient-based fallback polars.
+
+`scripts/` contains restored support tooling for rebuilding or validating those
+polars, but the runtime workflow should not depend on keeping every old script.
 
 ## Models
 

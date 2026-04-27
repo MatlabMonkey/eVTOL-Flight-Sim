@@ -35,13 +35,20 @@ function config = localBuildConfig(userOptions, root_dir)
 dbPaths = TrimDB_Paths(root_dir);
 config = struct();
 config.root_dir = root_dir;
-config.database_dir = localGetField(userOptions, 'database_dir', dbPaths.database_dir);
+databaseName = string(localGetField(userOptions, 'database_name', ""));
+if strlength(databaseName) > 0
+    config.database_dir = fullfile(dbPaths.database_dir, char(databaseName));
+else
+    config.database_dir = localGetField(userOptions, 'database_dir', dbPaths.database_dir);
+end
 config.workspace_plots_dir = localGetField(userOptions, 'workspace_plots_dir', dbPaths.workspace_plots_dir);
 config.output_prefix = localGetField(userOptions, 'output_prefix', 'transition_trim_midband_guidegrid_scored');
+config.trim_formulation = string(localGetField(userOptions, 'trim_formulation', "legacy_vinf_tilt"));
 config.target_strategy = string(localGetField(userOptions, 'target_strategy', "guide_grid"));
+config.explicit_targets = localGetField(userOptions, 'explicit_targets', []);
 config.checkpoint_every = localGetField(userOptions, 'checkpoint_every', 5);
 config.write_debug_run_outputs = localGetField(userOptions, 'write_debug_run_outputs', false);
-config.write_linearizations_to_db = localGetField(userOptions, 'write_linearizations_to_db', true);
+config.write_linearizations_to_db = localGetField(userOptions, 'write_linearizations_to_db', false);
 config.linearization_root = localGetField(userOptions, 'linearization_root', ...
     fullfile(config.database_dir, 'transition_trim_linearizations'));
 config.linearization_index_csv = localGetField(userOptions, 'linearization_index_csv', ...
@@ -51,7 +58,10 @@ config.linearization_index_mat = localGetField(userOptions, 'linearization_index
 config.target_limit = localGetField(userOptions, 'target_limit', inf);
 config.vinf_grid_mps = localGetField(userOptions, 'vinf_grid_mps', 20:2.5:50);
 config.tilt_offsets_deg = localGetField(userOptions, 'tilt_offsets_deg', -7.5:2.5:7.5);
+config.alpha_grid_deg = localGetField(userOptions, 'alpha_grid_deg', 0.0);
 config.tilt_grid_deg = localGetField(userOptions, 'tilt_grid_deg', 0:5:90);
+config.target_tilt_min_deg = localGetField(userOptions, 'target_tilt_min_deg', 0.0);
+config.target_tilt_max_deg = localGetField(userOptions, 'target_tilt_max_deg', 95.0);
 config.max_vinf_mps = localGetField(userOptions, 'max_vinf_mps', max(config.vinf_grid_mps));
 config.base_vinf_ceiling_mps = localGetField(userOptions, 'base_vinf_ceiling_mps', 5.0);
 config.vinf_per_tilt = localGetField(userOptions, 'vinf_per_tilt', 0.8);
@@ -60,10 +70,10 @@ config.cruise_anchor = localGetField(userOptions, 'cruise_anchor', struct('tilt_
 config.reference_grid_step_deg = localGetField(userOptions, 'reference_grid_step_deg', 2.5);
 config.front_collective_min_rpm = localGetField(userOptions, 'front_collective_min_rpm', 600.0);
 config.rear_collective_min_rpm = localGetField(userOptions, 'rear_collective_min_rpm', 100.0);
-config.front_seed_offsets_rpm = localGetField(userOptions, 'front_seed_offsets_rpm', [-150 -75 0 75 150]);
-config.rear_seed_offsets_rpm = localGetField(userOptions, 'rear_seed_offsets_rpm', [-150 -75 0 75 150]);
-config.neighbor_seed_count = localGetField(userOptions, 'neighbor_seed_count', 2);
-config.history_seed_count = localGetField(userOptions, 'history_seed_count', 2);
+config.front_seed_offsets_rpm = localGetField(userOptions, 'front_seed_offsets_rpm', [-100 0 100]);
+config.rear_seed_offsets_rpm = localGetField(userOptions, 'rear_seed_offsets_rpm', [-100 0 100]);
+config.neighbor_seed_count = localGetField(userOptions, 'neighbor_seed_count', 1);
+config.history_seed_count = localGetField(userOptions, 'history_seed_count', 1);
 config.anchor_seed_front_window_rpm = localGetField(userOptions, 'anchor_seed_front_window_rpm', inf);
 config.anchor_seed_rear_window_rpm = localGetField(userOptions, 'anchor_seed_rear_window_rpm', inf);
 config.failed_seed_filter_enabled = localGetField(userOptions, 'failed_seed_filter_enabled', true);
@@ -72,9 +82,17 @@ config.failed_seed_tilt_radius_deg = localGetField(userOptions, 'failed_seed_til
 config.failed_seed_front_radius_rpm = localGetField(userOptions, 'failed_seed_front_radius_rpm', 125.0);
 config.failed_seed_rear_radius_rpm = localGetField(userOptions, 'failed_seed_rear_radius_rpm', 125.0);
 config.failed_seed_density_threshold = localGetField(userOptions, 'failed_seed_density_threshold', 3);
-config.family_names = localGetField(userOptions, 'family_names', {'front_rear_free_flap_elevator', 'rear_fixed_flap_elevator'});
+config.family_names = localGetField(userOptions, 'family_names', {'front_rear_free_flap_elevator'});
+config.enable_guide_grid_seeds = localGetField(userOptions, 'enable_guide_grid_seeds', true);
 config.enable_low_speed_physics_seeds = localGetField(userOptions, 'enable_low_speed_physics_seeds', false);
+config.enable_transition_force_balance_seeds = localGetField(userOptions, 'enable_transition_force_balance_seeds', false);
+config.transition_force_balance_seed_count = localGetField(userOptions, 'transition_force_balance_seed_count', 3);
+config.transition_force_balance_gamma_grid_deg = localGetField(userOptions, 'transition_force_balance_gamma_grid_deg', [-5 0 5 10 15]);
+config.transition_force_balance_gamma_bounds_deg = localGetField(userOptions, 'transition_force_balance_gamma_bounds_deg', [-10 25]);
 config.stop_after_exact = localGetField(userOptions, 'stop_after_exact', false);
+config.use_vertical_speed_output_constraint = localGetField(userOptions, 'use_vertical_speed_output_constraint', false);
+config.use_alpha_output_constraint = localGetField(userOptions, 'use_alpha_output_constraint', true);
+config.alpha_constraint_min_vinf_mps = localGetField(userOptions, 'alpha_constraint_min_vinf_mps', 0.5);
 config.update_master_attempt_db_on_checkpoint = localGetField(userOptions, 'update_master_attempt_db_on_checkpoint', true);
 config.refresh_canonical_databases_on_checkpoint = localGetField(userOptions, 'refresh_canonical_databases_on_checkpoint', false);
 config.seed_distance_weights = struct('tilt', 1 / 5, 'vinf', 1 / 5);
@@ -95,11 +113,15 @@ config.rear_guide_knot_vinf_mps = localGetField(userOptions, 'rear_guide_knot_vi
     [0 10 20 30 40 50 60 70 75]);
 config.rear_guide_knot_rpm = localGetField(userOptions, 'rear_guide_knot_rpm', ...
     [1780 1670 1500 1350 1220 1080 800 430 100]);
+computeLinearization = logical(localGetField(userOptions, 'compute_linearization', ...
+    localGetField(userOptions, 'computeLinearization', ...
+    localGetField(userOptions, 'write_linearizations_to_db', false))));
 config.trim_options = struct( ...
     'verbose', false, ...
     'debug', false, ...
     'emitSummary', false, ...
-    'emitLinearSummary', false);
+    'emitLinearSummary', false, ...
+    'computeLinearization', computeLinearization);
 config.score_options = localGetField(userOptions, 'score_options', struct( ...
     'profile', 'transition', ...
     'hold_horizon_s', 2.0));
@@ -254,6 +276,7 @@ for i = 1:height(anchorTable)
     seed.front_collective_guess_rpm = localTableValue(anchorTable, 'front_collective_rpm', i, NaN);
     seed.rear_collective_guess_rpm = localTableValue(anchorTable, 'rear_collective_rpm', i, NaN);
     seed.theta_guess_deg = localTableValue(anchorTable, 'theta_deg', i, 0.0);
+    seed.alpha_guess_deg = localAlphaGuessFromTableRow(anchorTable, i);
     seed.delta_f_guess_deg = localTableValue(anchorTable, 'delta_f_deg', i, 0.0);
     seed.delta_a_guess_deg = localTableValue(anchorTable, 'delta_a_deg', i, 0.0);
     seed.delta_e_guess_deg = localTableValue(anchorTable, 'delta_e_deg', i, 0.0);
@@ -274,6 +297,8 @@ switch lower(string(config.target_strategy))
         targets = localBuildLowSpeedFrontierTargets(config);
     case "bridge_frontier"
         targets = localBuildBridgeFrontierTargets(config, anchorTable);
+    case "explicit_targets"
+        targets = localBuildExplicitTargets(config);
     otherwise
         error('TrimSearch_BuildPlan:UnknownTargetStrategy', ...
             'Unknown target strategy: %s', config.target_strategy);
@@ -290,15 +315,24 @@ for iV = 1:numel(config.vinf_grid_mps)
     for iOffset = 1:numel(config.tilt_offsets_deg)
         tilt_deg = config.reference_grid_step_deg * round( ...
             (centerTilt + config.tilt_offsets_deg(iOffset)) / config.reference_grid_step_deg);
-        target = localTargetTemplate();
-        target.name = sprintf('MidbandGuide_Tilt%s_V%s', localValueLabel(tilt_deg), localValueLabel(vinf_mps));
-        target.tilt_deg = tilt_deg;
-        target.vinf_mps = vinf_mps;
-        target.center_tilt_deg = centerTilt;
-        target.front_guide_rpm = frontGuide;
-        target.rear_guide_rpm = rearGuide;
-        target.sort_key = vinf_mps + 0.1 * abs(tilt_deg - centerTilt);
-        targets(end + 1, 1) = target; %#ok<AGROW>
+        if tilt_deg < config.target_tilt_min_deg - 1e-9 || ...
+                tilt_deg > config.target_tilt_max_deg + 1e-9
+            continue;
+        end
+        for iAlpha = 1:numel(config.alpha_grid_deg)
+            alpha_deg = config.alpha_grid_deg(iAlpha);
+            target = localTargetTemplate();
+            target.name = sprintf('MidbandGuide_Tilt%s_V%s_A%s', ...
+                localValueLabel(tilt_deg), localValueLabel(vinf_mps), localValueLabel(alpha_deg));
+            target.tilt_deg = tilt_deg;
+            target.vinf_mps = vinf_mps;
+            target.alpha_target_deg = alpha_deg;
+            target.center_tilt_deg = centerTilt;
+            target.front_guide_rpm = frontGuide;
+            target.rear_guide_rpm = rearGuide;
+            target.sort_key = vinf_mps + 0.1 * abs(tilt_deg - centerTilt) + 0.01 * abs(alpha_deg);
+            targets(end + 1, 1) = target; %#ok<AGROW>
+        end
     end
 end
 
@@ -316,6 +350,10 @@ vinf_grid = config.vinf_grid_mps(:).';
 
 for iTilt = 1:numel(config.tilt_grid_deg)
     tilt_deg = config.tilt_grid_deg(iTilt);
+    if tilt_deg < config.target_tilt_min_deg - 1e-9 || ...
+            tilt_deg > config.target_tilt_max_deg + 1e-9
+        continue;
+    end
     vinf_ceiling = min(config.max_vinf_mps, config.base_vinf_ceiling_mps + config.vinf_per_tilt * tilt_deg);
     vinf_values = vinf_grid(vinf_grid <= vinf_ceiling + 1e-9);
     if tilt_deg == 0
@@ -325,15 +363,20 @@ for iTilt = 1:numel(config.tilt_grid_deg)
     end
 
     for vinf_mps = vinf_values
-        target = localTargetTemplate();
-        target.name = sprintf('LowSpeedFrontier_Tilt%s_V%s', localValueLabel(tilt_deg), localValueLabel(vinf_mps));
-        target.tilt_deg = tilt_deg;
-        target.vinf_mps = vinf_mps;
-        target.center_tilt_deg = tilt_deg;
-        target.front_guide_rpm = localInterpGuide(vinf_mps, config.front_guide_knot_vinf_mps, config.front_guide_knot_rpm);
-        target.rear_guide_rpm = localInterpGuide(vinf_mps, config.rear_guide_knot_vinf_mps, config.rear_guide_knot_rpm);
-        target.sort_key = vinf_mps + 0.75 * tilt_deg;
-        targets(end + 1, 1) = target; %#ok<AGROW>
+        for iAlpha = 1:numel(config.alpha_grid_deg)
+            alpha_deg = config.alpha_grid_deg(iAlpha);
+            target = localTargetTemplate();
+            target.name = sprintf('LowSpeedFrontier_Tilt%s_V%s_A%s', ...
+                localValueLabel(tilt_deg), localValueLabel(vinf_mps), localValueLabel(alpha_deg));
+            target.tilt_deg = tilt_deg;
+            target.vinf_mps = vinf_mps;
+            target.alpha_target_deg = alpha_deg;
+            target.center_tilt_deg = tilt_deg;
+            target.front_guide_rpm = localInterpGuide(vinf_mps, config.front_guide_knot_vinf_mps, config.front_guide_knot_rpm);
+            target.rear_guide_rpm = localInterpGuide(vinf_mps, config.rear_guide_knot_vinf_mps, config.rear_guide_knot_rpm);
+            target.sort_key = vinf_mps + 0.75 * tilt_deg + 0.01 * abs(alpha_deg);
+            targets(end + 1, 1) = target; %#ok<AGROW>
+        end
     end
 end
 
@@ -348,28 +391,149 @@ vinf_grid = config.vinf_grid_mps(:).';
 
 for iTilt = 1:numel(config.tilt_grid_deg)
     tilt_deg = config.tilt_grid_deg(iTilt);
+    if tilt_deg < config.target_tilt_min_deg - 1e-9 || ...
+            tilt_deg > config.target_tilt_max_deg + 1e-9
+        continue;
+    end
     vinf_values = vinf_grid(vinf_grid <= config.max_vinf_mps + 1e-9);
     for vinf_mps = vinf_values
         if config.skip_known_good_targets && isKey(knownGoodKeys, localKnownPointKey(tilt_deg, vinf_mps))
             continue;
         end
 
-        target = localTargetTemplate();
-        target.name = sprintf('BridgeFrontier_Tilt%s_V%s', localValueLabel(tilt_deg), localValueLabel(vinf_mps));
-        target.tilt_deg = tilt_deg;
-        target.vinf_mps = vinf_mps;
-        target.center_tilt_deg = localInterpGuide(vinf_mps, config.reference_knot_vinf_mps, config.reference_knot_tilt_deg);
-        target.front_guide_rpm = localInterpGuide(vinf_mps, config.front_guide_knot_vinf_mps, config.front_guide_knot_rpm);
-        target.rear_guide_rpm = localInterpGuide(vinf_mps, config.rear_guide_knot_vinf_mps, config.rear_guide_knot_rpm);
-        frontierDistance = localNearestKnownPointDistance(tilt_deg, vinf_mps, knownGoodPoints, config.seed_distance_weights);
-        cruiseDistance = hypot((config.cruise_anchor.tilt_deg - tilt_deg) * config.seed_distance_weights.tilt, ...
-            (config.cruise_anchor.vinf_mps - vinf_mps) * config.seed_distance_weights.vinf);
-        target.sort_key = 100.0 * frontierDistance + cruiseDistance;
-        targets(end + 1, 1) = target; %#ok<AGROW>
+        for iAlpha = 1:numel(config.alpha_grid_deg)
+            alpha_deg = config.alpha_grid_deg(iAlpha);
+            target = localTargetTemplate();
+            target.name = sprintf('BridgeFrontier_Tilt%s_V%s_A%s', ...
+                localValueLabel(tilt_deg), localValueLabel(vinf_mps), localValueLabel(alpha_deg));
+            target.tilt_deg = tilt_deg;
+            target.vinf_mps = vinf_mps;
+            target.alpha_target_deg = alpha_deg;
+            target.center_tilt_deg = localInterpGuide(vinf_mps, config.reference_knot_vinf_mps, config.reference_knot_tilt_deg);
+            target.front_guide_rpm = localInterpGuide(vinf_mps, config.front_guide_knot_vinf_mps, config.front_guide_knot_rpm);
+            target.rear_guide_rpm = localInterpGuide(vinf_mps, config.rear_guide_knot_vinf_mps, config.rear_guide_knot_rpm);
+            frontierDistance = localNearestKnownPointDistance(tilt_deg, vinf_mps, knownGoodPoints, config.seed_distance_weights);
+            cruiseDistance = hypot((config.cruise_anchor.tilt_deg - tilt_deg) * config.seed_distance_weights.tilt, ...
+                (config.cruise_anchor.vinf_mps - vinf_mps) * config.seed_distance_weights.vinf);
+            target.sort_key = 100.0 * frontierDistance + cruiseDistance + 0.01 * abs(alpha_deg);
+            targets(end + 1, 1) = target; %#ok<AGROW>
+        end
     end
 end
 
 targets = localLimitAndSortTargets(targets, config);
+end
+
+function targets = localBuildExplicitTargets(config)
+rawTargets = config.explicit_targets;
+if isempty(rawTargets)
+    targets = repmat(localTargetTemplate(), 0, 1);
+    return;
+end
+
+if ischar(rawTargets) || (isstring(rawTargets) && isscalar(rawTargets))
+    targetFile = char(rawTargets);
+    if exist(targetFile, 'file') ~= 2
+        error('TrimSearch_BuildPlan:ExplicitTargetsMissing', ...
+            'Explicit target file does not exist: %s', targetFile);
+    end
+    rawTargets = readtable(targetFile, 'TextType', 'string');
+end
+
+targets = repmat(localTargetTemplate(), 0, 1);
+nRows = localExplicitTargetCount(rawTargets);
+for iRow = 1:nRows
+    tilt_deg = localExplicitNumeric(rawTargets, 'tilt_deg', iRow, NaN);
+    vinf_mps = localExplicitNumeric(rawTargets, 'vinf_mps', iRow, NaN);
+    alpha_deg = localExplicitNumeric(rawTargets, 'alpha_target_deg', iRow, ...
+        localExplicitNumeric(rawTargets, 'alpha_deg', iRow, 0.0));
+    if ~isfinite(tilt_deg) || ~isfinite(vinf_mps) || ~isfinite(alpha_deg)
+        continue;
+    end
+    if tilt_deg < config.target_tilt_min_deg - 1e-9 || ...
+            tilt_deg > config.target_tilt_max_deg + 1e-9 || ...
+            vinf_mps > config.max_vinf_mps + 1e-9
+        continue;
+    end
+
+    target = localTargetTemplate();
+    target.name = char(localExplicitString(rawTargets, 'name', iRow, ...
+        sprintf('ExplicitTarget_Tilt%s_V%s_A%s', ...
+        localValueLabel(tilt_deg), localValueLabel(vinf_mps), localValueLabel(alpha_deg))));
+    target.tilt_deg = tilt_deg;
+    target.vinf_mps = vinf_mps;
+    target.alpha_target_deg = alpha_deg;
+    target.center_tilt_deg = localExplicitNumeric(rawTargets, 'center_tilt_deg', iRow, ...
+        localInterpGuide(vinf_mps, config.reference_knot_vinf_mps, config.reference_knot_tilt_deg));
+    target.front_guide_rpm = localExplicitNumeric(rawTargets, 'front_guide_rpm', iRow, ...
+        localInterpGuide(vinf_mps, config.front_guide_knot_vinf_mps, config.front_guide_knot_rpm));
+    target.rear_guide_rpm = localExplicitNumeric(rawTargets, 'rear_guide_rpm', iRow, ...
+        localInterpGuide(vinf_mps, config.rear_guide_knot_vinf_mps, config.rear_guide_knot_rpm));
+    target.sort_key = localExplicitNumeric(rawTargets, 'sort_key', iRow, iRow);
+    targets(end + 1, 1) = target; %#ok<AGROW>
+end
+
+targets = localLimitAndSortTargets(targets, config);
+end
+
+function nRows = localExplicitTargetCount(rawTargets)
+if istable(rawTargets)
+    nRows = height(rawTargets);
+elseif isstruct(rawTargets)
+    nRows = numel(rawTargets);
+else
+    error('TrimSearch_BuildPlan:BadExplicitTargets', ...
+        'explicit_targets must be a table, struct array, or CSV filename.');
+end
+end
+
+function value = localExplicitNumeric(rawTargets, fieldName, idx, defaultValue)
+if ~localExplicitHasField(rawTargets, fieldName)
+    value = defaultValue;
+    return;
+end
+rawValue = localExplicitValue(rawTargets, fieldName, idx);
+if isnumeric(rawValue) || islogical(rawValue)
+    value = double(rawValue);
+elseif isstring(rawValue) || ischar(rawValue)
+    value = str2double(string(rawValue));
+else
+    value = defaultValue;
+end
+if isempty(value) || ~isfinite(value)
+    value = defaultValue;
+end
+end
+
+function value = localExplicitString(rawTargets, fieldName, idx, defaultValue)
+if ~localExplicitHasField(rawTargets, fieldName)
+    value = string(defaultValue);
+    return;
+end
+rawValue = localExplicitValue(rawTargets, fieldName, idx);
+if isempty(rawValue) || (isstring(rawValue) && any(ismissing(rawValue)))
+    value = string(defaultValue);
+else
+    value = string(rawValue);
+end
+end
+
+function tf = localExplicitHasField(rawTargets, fieldName)
+if istable(rawTargets)
+    tf = ismember(fieldName, rawTargets.Properties.VariableNames);
+elseif isstruct(rawTargets)
+    tf = isfield(rawTargets, fieldName);
+else
+    tf = false;
+end
+end
+
+function value = localExplicitValue(rawTargets, fieldName, idx)
+if istable(rawTargets)
+    value = rawTargets.(fieldName)(idx);
+else
+    value = rawTargets(idx).(fieldName);
+end
 end
 
 function targets = localLimitAndSortTargets(targets, config)
@@ -417,6 +581,9 @@ end
 
 function previewRows = localBuildSeedPreview(targets, config)
 previewRows = repmat(localPreviewRowTemplate(), 0, 1);
+if ~localGetField(config, 'enable_guide_grid_seeds', true)
+    return;
+end
 for i = 1:numel(targets)
     target = targets(i);
     for iFront = 1:numel(config.front_seed_offsets_rpm)
@@ -425,6 +592,7 @@ for i = 1:numel(targets)
             row.name = target.name;
             row.tilt_deg = target.tilt_deg;
             row.vinf_mps = target.vinf_mps;
+            row.alpha_target_deg = target.alpha_target_deg;
             row.center_tilt_deg = target.center_tilt_deg;
             row.front_center_rpm = target.front_guide_rpm;
             row.rear_center_rpm = target.rear_guide_rpm;
@@ -467,11 +635,33 @@ else
 end
 end
 
+function alpha_deg = localAlphaGuessFromTableRow(tbl, idx)
+alpha_deg = localTableValue(tbl, 'alpha_deg', idx, NaN);
+if isfinite(alpha_deg)
+    return;
+end
+
+u_mps = localTableValue(tbl, 'u_mps', idx, NaN);
+w_mps = localTableValue(tbl, 'w_mps', idx, NaN);
+if isfinite(u_mps) && isfinite(w_mps)
+    alpha_deg = atan2d(w_mps, u_mps);
+    return;
+end
+
+theta_deg = localTableValue(tbl, 'theta_deg', idx, NaN);
+if isfinite(theta_deg)
+    alpha_deg = theta_deg;
+else
+    alpha_deg = 0.0;
+end
+end
+
 function target = localTargetTemplate()
 target = struct( ...
     'name', '', ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
     'center_tilt_deg', NaN, ...
     'front_guide_rpm', NaN, ...
     'rear_guide_rpm', NaN, ...
@@ -483,6 +673,7 @@ row = struct( ...
     'name', '', ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
     'center_tilt_deg', NaN, ...
     'front_center_rpm', NaN, ...
     'rear_center_rpm', NaN, ...
@@ -498,6 +689,7 @@ seed = struct( ...
     'vinf_mps', NaN, ...
     'front_collective_guess_rpm', NaN, ...
     'rear_collective_guess_rpm', NaN, ...
+    'alpha_guess_deg', NaN, ...
     'theta_guess_deg', NaN, ...
     'delta_f_guess_deg', 0.0, ...
     'delta_a_guess_deg', 0.0, ...

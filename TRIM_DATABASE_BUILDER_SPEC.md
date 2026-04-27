@@ -1,13 +1,13 @@
 # Trim Database Builder Spec
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:30 PDT
 
 Status: historical implementation spec. The current user-facing workflow is in
 `TRIM_DATABASES.md`; this file remains as deeper background for the builder
 schema and old source normalization rules.
 
 This document is the build spec for the script that consolidates trim
-search results into clean databases under `eVTOL_Simulation/databases/`
+search results into clean databases under `databases/`
 for:
 
 1. search / audit work
@@ -41,7 +41,7 @@ exports two clean products:
 
 The builder must produce these files in:
 
-- `/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/eVTOL_Simulation/databases/`
+- `/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/databases/`
 
 Required outputs:
 
@@ -536,7 +536,7 @@ default to `false`.
 
 Use a single top-level builder script:
 
-- `/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/eVTOL_Simulation/TrimDB_Build.m`
+   - `/Users/zbrown/Documents/Fifth year Spring/Flight Controls/eVTOL-Flight-Sim/TrimDB_Build.m`
 
 Recommended helper structure:
 - `build_transition_trim_source_manifest.m`

@@ -1,10 +1,10 @@
-# eVTOL_Simulation Keep/Drop Audit
+# eVTOL Flight Sim Keep/Drop Audit
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:48 PDT
 
 Scope frozen on 2026-04-25 after the first active-root cleanup pass.
 
-This audit covers the active `eVTOL_Simulation` tree and excludes:
+This audit covers the active repo-root tree and excludes:
 
 - `archive/`
 - `.simcache/`
@@ -38,7 +38,6 @@ outputs from the active tree.
 Keep the active runtime chain:
 
 - `Init_Main.m`
-- `Full_Sim_Init.m`
 - `Trim_Main.m`
 - `trim_evtol_case.m`
 - `Run_Main.m`
@@ -138,12 +137,13 @@ Keep the current generic plotting and visualization helpers:
 - `scenario_def.m`
 - `measure_trim_control_effectiveness.m`
 
-`databases/` is the canonical directory for durable trim/controller DBs.
+`databases/` is the canonical directory for durable trim/controller/aero data.
 
 Within `databases/`, the durable source-of-truth assets are:
 
 - `trim_attempts.*`
 - `controller_schedule.*`
+- `aero_polars/final_airfoil_polar_tables.mat`
 - `transition_trim_linearization_index.*` and `transition_trim_linearizations/` when created by new searches
 
 `workspace_plots/` stays as the generated-output directory for plots, previews,

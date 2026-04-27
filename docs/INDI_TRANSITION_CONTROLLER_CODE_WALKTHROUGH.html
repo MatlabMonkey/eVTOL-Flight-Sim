@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>INDI Transition Controller Code Walkthrough</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #4b5563;
+      --panel: #f8fafc;
+      --line: #d1d5db;
+      --accent: #0f766e;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+    }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 28px 72px;
+    }
+    h1, h2, h3 {
+      line-height: 1.15;
+      margin: 0 0 12px;
+    }
+    h1 {
+      font-size: 2.3rem;
+      letter-spacing: -0.03em;
+    }
+    h2 {
+      margin-top: 34px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--accent);
+    }
+    h3 {
+      margin-top: 22px;
+      font-size: 1.05rem;
+    }
+    p {
+      margin: 8px 0 14px;
+    }
+    .meta {
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+    code, pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    code {
+      color: var(--code);
+      background: var(--code-bg);
+      padding: 0.1rem 0.28rem;
+      border-radius: 5px;
+    }
+    pre {
+      margin: 10px 0 0;
+      overflow-x: auto;
+      background: #0b1220;
+      color: #e5edf8;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2f7;
+    }
+    .equation {
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: #ecfeff;
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+    }
+    .note {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>INDI Transition Controller Code Walkthrough</h1>
+  <p class="meta">Last reviewed: 2026-04-27 00:00 PDT. This document mirrors the first implementation of the scheduled longitudinal INDI controller.</p>
+
+  <section class="card">
+    <h2>Controller Stack</h2>
+    <p>The implementation is split into an offline builder and a runtime controller. The builder can be rerun as the trim sweep database grows. The runtime file is kept codegen-friendly for the MATLAB Function dispatch block.</p>
+    <pre><code>controllers/builders/build_indi_transition_controller.m
+  -> load trim DB and INDI effectiveness map
+  -> select a smooth path through candidate trim points
+  -> pack x_ref, trim_cmd, and G schedules into controllerData
+
+controllers/controller_indi_transition.m
+  -> gated path scheduler
+  -> outer-loop specific-force and pitch-acceleration command
+  -> INDI weighted least-squares allocator
+  -> actuator command limiting
+
+controllers/controller_dispatch.m
+  -> controller_id = 6 calls controller_indi_transition</code></pre>
+  </section>
+
+  <h2>Signal Definitions</h2>
+  <table>
+    <thead>
+      <tr><th>Symbol</th><th>Code variable</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>\(x\)</td><td><code>x_meas</code>, <code>x_ref</code></td><td>\([\phi,\theta,\psi,u,v,w,p,q,r]^T\)</td></tr>
+      <tr><td>\(\nu\)</td><td><code>nu_meas</code>, <code>nu_cmd</code></td><td>\([f_x, f_z, \dot q]^T\), where \(f_x,f_z\) are body specific-force components</td></tr>
+      <tr><td>\(\eta\)</td><td><code>eta_base</code>, <code>eta_cmd</code></td><td>\([\Omega_f^2,\Omega_r^2,\delta_f,\delta_e]^T\)</td></tr>
+      <tr><td>\(G\)</td><td><code>indi_schedule(1:3,1:4,:)</code></td><td>Local effectiveness \( \partial \nu / \partial \eta \)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="equation">
+    \[
+      \nu =
+      \begin{bmatrix}
+        f_x \\
+        f_z \\
+        \dot q
+      \end{bmatrix},
+      \qquad
+      \eta =
+      \begin{bmatrix}
+        \Omega_f^2 \\
+        \Omega_r^2 \\
+        \delta_f \\
+        \delta_e
+      \end{bmatrix}
+    \]
+  </div>
+
+  <h2>Builder File</h2>
+  <p><code>build_indi_transition_controller(opts)</code> owns all non-codegen work. It reads the current trim database and the INDI surface-effectiveness database, then writes a compact numeric schedule into <code>controllerData</code>.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Top-Level Builder</h3>
+      <pre><code>opts = localApplyDefaults(opts);
+evalin('base', 'Init_Main');
+
+trimTable = localLoadTrimCandidateTable(opts.trim_db_file);
+indiMaps = localLoadIndiMaps(opts.indi_map_file);
+plant = localLoadPlantDataFromBase();
+
+[pathTable, pathDebug] = localSelectPath(trimTable, opts.path);
+
+for each path point
+    stateSchedule(:,i) = state + path metadata
+    trimSchedule(:,i) = nominal trim actuators
+    indiSchedule(:,:,i) = G + allocator weights
+end</code></pre>
+    </div>
+    <div class="card">
+      <h3>Math</h3>
+      <p>Each path point stores a local linearized input-to-virtual-output map:</p>
+      <div class="equation">
+        \[
+          \Delta \nu \approx G_i \Delta \eta,
+          \qquad
+          G_i =
+          \left.
+          \frac{\partial [f_x,f_z,\dot q]^T}
+               {\partial [\Omega_f^2,\Omega_r^2,\delta_f,\delta_e]^T}
+          \right|_{i}
+        \]
+      </div>
+    </div>
+  </div>
+
+  <h3>Path Selection</h3>
+  <p><code>localSelectPath</code> filters out unusable trim rows, builds candidate sets around a guide curve in \(V_\infty\)-tilt space, and uses dynamic programming to minimize total point and edge cost. The first and last guide points are forced to the nearest valid candidates so hover and cruise anchors do not get skipped.</p>
+  <div class="equation">
+    \[
+      J =
+      \sum_i J_{\text{point}}(i)
+      + \sum_i J_{\text{edge}}(i,i+1)
+    \]
+    \[
+      J_{\text{edge}} =
+      \Delta V^2 + \Delta \theta_{\text{tilt}}^2
+      + w_u \left(\Delta \Omega_f^2+\Delta \Omega_r^2+\Delta \delta_f^2+\Delta \delta_e^2\right)
+      + w_\alpha \Delta\alpha^2
+      + w_\theta \Delta\theta^2
+    \]
+  </div>
+
+  <h3>Propeller Effectiveness</h3>
+  <p><code>localPropColumn</code> computes propeller columns analytically from the thrust constant and rotor locations. Front prop direction changes with scheduled front tilt; rear prop direction is fixed vertical in this first controller.</p>
+  <div class="equation">
+    \[
+      T = k_T \Omega^2,
+      \qquad
+      \frac{\partial F}{\partial \Omega^2} = k_T \hat d,
+      \qquad
+      \frac{\partial M}{\partial \Omega^2} = r \times k_T \hat d
+    \]
+    \[
+      G_{\text{prop}} =
+      \begin{bmatrix}
+        \frac{1}{m}\frac{\partial F_x}{\partial \Omega^2} \\
+        \frac{1}{m}\frac{\partial F_z}{\partial \Omega^2} \\
+        \frac{1}{I_{yy}}\frac{\partial M_y}{\partial \Omega^2}
+      \end{bmatrix}
+    \]
+  </div>
+
+  <h3>Surface Effectiveness</h3>
+  <p><code>localNearestSurfaceDerivative</code> samples the prebuilt map over \(V_\infty,\alpha,\delta\). The map stores force and moment derivatives for flaps and elevator from the trim plant / polar-derived sampling workflow.</p>
+  <div class="equation">
+    \[
+      G_{\delta} =
+      \begin{bmatrix}
+        \frac{1}{m}\frac{\partial F_x}{\partial \delta} \\
+        \frac{1}{m}\frac{\partial F_z}{\partial \delta} \\
+        \frac{1}{I_{yy}}\frac{\partial M_y}{\partial \delta}
+      \end{bmatrix}_{(V_\infty,\alpha,\delta)}
+    \]
+  </div>
+
+  <h2>Runtime File</h2>
+  <p><code>controller_indi_transition</code> is the code that actually runs in Simulink through <code>controller_dispatch</code>. It is intentionally numeric and explicit so it can compile in a MATLAB Function block.</p>
+
+  <h3>Schedule Inference</h3>
+  <pre><code>nPts = localInferScheduleCount(x_ref_schedule, trim_cmd_schedule);
+tilt_sched = localScheduleRow(x_ref_schedule, 10, nPts);
+vinf_sched = localScheduleRow(x_ref_schedule, 11, nPts);
+progress_sched = localScheduleRow(x_ref_schedule, 12, nPts);</code></pre>
+  <p>The schedules are padded to fixed Simulink sizes, so the runtime controller infers the real path length from the monotonic progress row.</p>
+
+  <h3>Gated Scheduler</h3>
+  <p><code>localAdvanceScheduler</code> holds the current waypoint until the measured state settles, then ramps to the next point over <code>segment_ramp_time_s</code>. This replaces the earlier blind time-only scheduler.</p>
+  <div class="equation">
+    \[
+      \text{settled} =
+      |\theta-\theta_i| \le \epsilon_\theta
+      \land |u-u_i| \le \epsilon_u
+      \land |w-w_i| \le \epsilon_w
+      \land |q-q_i| \le \epsilon_q
+    \]
+    \[
+      \lambda_{k+1} =
+      \min\left(\lambda_k + \frac{\Delta t}{T_{\text{ramp}}}, 1\right)
+    \]
+  </div>
+
+  <h3>Specific-Force Command</h3>
+  <p>The accelerometer channel is treated as body specific force. At steady non-accelerating trim, the target specific force is not zero; it is gravity projected into body axes. That is why pitch appears in the acceleration feedforward.</p>
+  <div class="equation">
+    \[
+      \nu_{\text{ff}} =
+      \begin{bmatrix}
+        g\sin\theta^\star \\
+        -g\cos\theta^\star \\
+        0
+      \end{bmatrix}
+    \]
+    \[
+      \nu_{\text{cmd}} =
+      \begin{bmatrix}
+        g\sin\theta^\star + k_u(u^\star-u) \\
+        -g\cos\theta^\star + k_w(w^\star-w) \\
+        k_q(q^\star-q) + k_\theta(\theta^\star-\theta)
+      \end{bmatrix}
+    \]
+  </div>
+
+  <h3>INDI Increment</h3>
+  <p>The measured acceleration estimates the nonlinear drift plus the effect of the current actuator state. The controller only solves for the incremental change required to move from measured acceleration to commanded acceleration.</p>
+  <div class="equation">
+    \[
+      \Delta \nu =
+      \nu_{\text{cmd}} - \nu_{\text{meas}}
+      \approx G(x,\eta_{\text{actual}})\Delta \eta
+    \]
+    \[
+      \Delta\eta =
+      \arg\min_{\Delta\eta}
+      \left\|W_\nu(G\Delta\eta-\Delta\nu)\right\|_2^2
+      +
+      \left\|W_\eta\Delta\eta\right\|_2^2
+    \]
+    \[
+      \Delta\eta =
+      (G^T W_\nu^2 G + W_\eta^2)^{-1}
+      G^T W_\nu^2 \Delta\nu
+    \]
+  </div>
+
+  <h3>Actual Actuator State</h3>
+  <p><code>localMeasuredEta</code> uses actual actuator states, not commanded states, to avoid mapping the INDI increment around the wrong point when the actuators lag.</p>
+  <pre><code>front_rpm = mean([rpm_FR, rpm_FL]);
+rear_rpm  = mean([rpm_RR, rpm_RL]);
+delta_f   = mean([delta_LW, delta_RW]);
+delta_e   = mean([delta_LT, delta_RT]);
+
+eta_base = [front_rpm^2; rear_rpm^2; delta_f; delta_e];</code></pre>
+
+  <h3>Command Reconstruction</h3>
+  <p><code>localEtaToMixedCommand</code> converts the INDI variables back to the mixed actuator command convention used by dispatch. Aileron and rudder are intentionally zero for this longitudinal controller.</p>
+  <div class="equation">
+    \[
+      \eta_{\text{cmd}} = \eta_{\text{actual}} + \Delta\eta
+    \]
+    \[
+      \Omega_{f,\text{cmd}} =
+      \sqrt{\max(\Omega_{f,\text{cmd}}^2,0)},
+      \qquad
+      \Omega_{r,\text{cmd}} =
+      \sqrt{\max(\Omega_{r,\text{cmd}}^2,0)}
+    \]
+  </div>
+
+  <h2>Schedule Packing Contract</h2>
+  <table>
+    <thead>
+      <tr><th>Array</th><th>Rows/pages</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>controller_state_ref</code></td><td>1:9</td><td>state reference \([\phi,\theta,\psi,u,v,w,p,q,r]\)</td></tr>
+      <tr><td><code>controller_state_ref</code></td><td>10:12</td><td>tilt, \(V_\infty\), normalized path progress</td></tr>
+      <tr><td><code>controller_state_ref</code></td><td>13:19</td><td>settle thresholds and ramp timing</td></tr>
+      <tr><td><code>controller_state_ref</code></td><td>20:24</td><td>outer-loop gains and acceleration-error clipping</td></tr>
+      <tr><td><code>controller_trim_cmd</code></td><td>1:6</td><td>nominal \([front,rear,\delta_f,\delta_a,\delta_e,\delta_r]\)</td></tr>
+      <tr><td><code>controller_gain_lqr</code></td><td>1:3,1:4,page</td><td>INDI \(G\) matrix for that waypoint</td></tr>
+      <tr><td><code>controller_gain_lqr</code></td><td>4:6,page</td><td>allocator weights and delta-\(\eta\) limits</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Function Index</h2>
+  <p>This table maps the implementation functions to the equations or operations above.</p>
+  <table>
+    <thead>
+      <tr><th>File</th><th>Function</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>build_indi_transition_controller</code></td><td>Top-level offline schedule builder.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localApplyDefaults</code> and option helpers</td><td>Set path, gating, outer-loop, and allocator defaults.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localLoadTrimCandidateTable</code></td><td>Read current trim candidates from the trim attempt DB.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localLoadIndiMaps</code></td><td>Read the combined surface-effectiveness map.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localSelectPath</code></td><td>Choose the hover-to-cruise trim corridor.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localFilterCandidateTable</code></td><td>Reject unusable rows by class, finite values, alpha, theta, and surface limits.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localBuildCandidateSets</code></td><td>Build candidate points around each guide waypoint.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localDynamicProgrammingPath</code></td><td>Minimize point and edge costs through candidate sets.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localEdgeCost</code></td><td>Penalize jumps in speed, tilt, alpha, theta, RPM, flap, and elevator.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localStateVectorFromPathRow</code></td><td>Pack trim row into the 9-state controller vector.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localTrimVectorFromPathRow</code></td><td>Pack trim row into mixed actuator commands.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localPathProgress</code></td><td>Normalize distance along selected path to \(s\in[0,1]\).</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localBuildEffectivenessAtPoint</code></td><td>Construct each scheduled \(G_i\) matrix.</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localPropColumn</code></td><td>Analytic propeller effectiveness from \(T=k_T\Omega^2\).</td></tr>
+      <tr><td><code>build_indi_transition_controller.m</code></td><td><code>localNearestSurfaceDerivative</code></td><td>Sample flap/elevator force and moment derivatives from the map.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>controller_indi_transition</code></td><td>Top-level runtime scheduler, INDI law, and command reconstruction.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localInferScheduleCount</code></td><td>Recover real path length from padded Simulink schedules.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localAdvanceScheduler</code></td><td>Hold-settle-ramp waypoint state machine.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localIsSettledAtPoint</code></td><td>Evaluate waypoint settling tolerances.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localCommandedVirtualAcceleration</code></td><td>Build \(\nu_{\text{cmd}}\) from gravity feedforward and state error.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localMeasuredEta</code></td><td>Convert actual actuator states to \(\eta_{\text{actual}}\).</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localWeightedLeastSquares</code></td><td>Solve the regularized INDI increment.</td></tr>
+      <tr><td><code>controller_indi_transition.m</code></td><td><code>localEtaToMixedCommand</code></td><td>Convert \(\eta_{\text{cmd}}\) back to dispatch command channels.</td></tr>
+      <tr><td><code>controller_dispatch.m</code></td><td><code>case 6</code></td><td>Route Simulink inputs to the INDI runtime helper.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How To Use</h2>
+  <pre><code>Init_Main
+addpath('controllers')
+addpath('controllers/builders')
+
+controllerData = build_indi_transition_controller();
+
+% Then prepare a run in the usual workflow:
+% trimResult should describe the starting hover/low-speed point.
+runCase = struct('useController', true, 'attemptSimulation', true, 'stopTime_s', 240);
+Run_Main</code></pre>
+
+  <p class="note">The trim sweep database is still allowed to improve. Rerunning <code>build_indi_transition_controller</code> should automatically pick from the newer trim candidates as long as the database schema stays compatible.</p>
+</main>
+</body>
+</html>

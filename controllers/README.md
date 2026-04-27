@@ -1,16 +1,14 @@
 # Controllers
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-27 00:00 PDT
 
 This folder contains the active controller runtime and builder helpers.
 
 ## Current Controller Flow
 
 ```text
-controller_schedule
--> select_corridor_path_from_db
--> build_trim_lqr_controller
--> build_corridor_lqr_controller
+controller_schedule or trim_attempts + INDI map
+-> controller builder
 -> controllerData
 -> Run_Main
 ```
@@ -22,9 +20,11 @@ The default controller schedule file is
 
 - `builders/build_corridor_lqr_controller.m`: builds the scheduled corridor controller.
 - `builders/build_trim_lqr_controller.m`: builds one local longitudinal LQR.
+- `builders/build_indi_transition_controller.m`: builds the transition path and compact INDI schedules.
 - `../planning/select_corridor_path_from_db.m`: selects a path through controller DB points.
 - `controller_dispatch.m`: runtime switchboard.
 - `controller_lqr_path_schedule_gated.m`: active scheduled/gated runtime controller.
+- `controller_indi_transition.m`: scheduled/gated longitudinal INDI transition controller.
 - `presets/build_corridor_test_preset.m`: route/timing/LQR-weight preset.
 
 ## Runtime Interface
@@ -42,6 +42,7 @@ Current `controller_id` values:
 - `3`: longitudinal tracking LQR
 - `4`: interpolated scheduled path LQR
 - `5`: gated scheduled path LQR
+- `6`: gated scheduled longitudinal INDI transition controller
 
 ## Signal Convention
 

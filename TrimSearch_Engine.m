@@ -107,11 +107,7 @@ transitionTrimMidbandGuideGridSummary = table();
 try
     for iTarget = 1:numel(targets)
         target = targets(iTarget);
-        masterAttemptSummary = localLoadMasterAttemptSummary(masterAttemptDbCsv);
-        controllerScheduleSummary = localLoadControllerScheduleSummary(controllerScheduleDbCsv);
-        controllerScheduleSeeds = localBuildHistorySeedsFromControllerSchedule(controllerScheduleSummary, config.rear_collective_min_rpm);
-        masterHistorySeeds = localBuildHistorySeedsFromSummary(masterAttemptSummary, config.rear_collective_min_rpm);
-        combinedHistorySeeds = localMergeSeedLists(historySeeds, controllerScheduleSeeds, masterHistorySeeds);
+        combinedHistorySeeds = historySeeds;
         fprintf('\n[%d/%d] %s | tilt=%.1f | V=%.1f | guide front=%.1f | guide rear=%.1f\n', ...
             iTarget, numel(targets), target.name, target.tilt_deg, target.vinf_mps, ...
             target.front_guide_rpm, target.rear_guide_rpm);
@@ -221,6 +217,8 @@ entry.key = localTargetKey(target);
 entry.name = target.name;
 entry.tilt_deg = target.tilt_deg;
 entry.vinf_mps = target.vinf_mps;
+entry.alpha_target_deg = target.alpha_target_deg;
+entry.trim_formulation = string(localGetField(config, 'trim_formulation', ""));
 entry.family = bestAttempt.family;
 entry.seed_name = bestAttempt.seed_name;
 entry.success = bestAttempt.success;
@@ -241,6 +239,7 @@ entry.theta_deg = bestAttempt.theta_deg;
 entry.u_mps = bestAttempt.u_mps;
 entry.w_mps = bestAttempt.w_mps;
 entry.alpha_deg = bestAttempt.alpha_deg;
+entry.gamma_deg = bestAttempt.gamma_deg;
 entry.trimCase = bestAttempt.trimCase;
 entry.trimResult = bestAttempt.trimResult;
 entry.scoreData = bestAttempt.scoreData;
@@ -249,6 +248,24 @@ end
 
 function seedCandidates = localBuildSeedCandidates(target, existingEntries, historySeeds, masterAttemptSummary, config, initData)
 seedCandidates = repmat(localSeedTemplate(), 0, 1);
+
+if localGetField(config, 'enable_transition_force_balance_seeds', false)
+    baseCase = localBaseTrimCase(target, config);
+    seedOptions = struct( ...
+        'seed_count', localGetField(config, 'transition_force_balance_seed_count', 3), ...
+        'gamma_grid_deg', localGetField(config, 'transition_force_balance_gamma_grid_deg', [-5 0 5 10 15]), ...
+        'gamma_bounds_deg', localGetField(config, 'transition_force_balance_gamma_bounds_deg', [-10 25]));
+    try
+        [forceSeeds, ~] = make_transition_force_balance_seeds(initData, baseCase, seedOptions);
+        for iSeed = 1:numel(forceSeeds)
+            forceSeeds(iSeed).tilt_deg = target.tilt_deg;
+            forceSeeds(iSeed).vinf_mps = target.vinf_mps;
+            forceSeeds(iSeed).source = 'transition_force_balance';
+            seedCandidates(end + 1, 1) = localCanonicalizeSeed(forceSeeds(iSeed)); %#ok<SAGROW>
+        end
+    catch
+    end
+end
 
 if localGetField(config, 'enable_low_speed_physics_seeds', false)
     baseCase = localBaseTrimCase(target, config);
@@ -301,34 +318,38 @@ if ~isempty(neighborEntries)
 end
 
 baseSeed = localBestBaseSeed(seedCandidates, target);
-guideNameRoot = sprintf('guide_V%s_T%s', localValueLabel(target.vinf_mps), localValueLabel(target.tilt_deg));
-for iFront = 1:numel(config.front_seed_offsets_rpm)
-    for iRear = 1:numel(config.rear_seed_offsets_rpm)
-        seed = baseSeed;
-        seed.name = sprintf('%s_F%s_R%s', guideNameRoot, ...
-            localValueLabel(config.front_seed_offsets_rpm(iFront)), ...
-            localValueLabel(config.rear_seed_offsets_rpm(iRear)));
-        seed.source = 'midband_guide_grid';
-        seed.tilt_deg = target.tilt_deg;
-        seed.vinf_mps = target.vinf_mps;
-        seed.front_collective_guess_rpm = max(config.front_collective_min_rpm, ...
-            target.front_guide_rpm + config.front_seed_offsets_rpm(iFront));
-        seed.rear_collective_guess_rpm = max(config.rear_collective_min_rpm, ...
-            target.rear_guide_rpm + config.rear_seed_offsets_rpm(iRear));
-        seedCandidates(end + 1, 1) = localCanonicalizeSeed(seed); %#ok<SAGROW>
+if localGetField(config, 'enable_guide_grid_seeds', true)
+    guideNameRoot = sprintf('guide_V%s_T%s', localValueLabel(target.vinf_mps), localValueLabel(target.tilt_deg));
+    for iFront = 1:numel(config.front_seed_offsets_rpm)
+        for iRear = 1:numel(config.rear_seed_offsets_rpm)
+            seed = baseSeed;
+            seed.name = sprintf('%s_F%s_R%s', guideNameRoot, ...
+                localValueLabel(config.front_seed_offsets_rpm(iFront)), ...
+                localValueLabel(config.rear_seed_offsets_rpm(iRear)));
+            seed.source = 'midband_guide_grid';
+            seed.tilt_deg = target.tilt_deg;
+            seed.vinf_mps = target.vinf_mps;
+            seed.alpha_guess_deg = localResolveTargetAlphaDeg(target);
+            seed.front_collective_guess_rpm = max(config.front_collective_min_rpm, ...
+                target.front_guide_rpm + config.front_seed_offsets_rpm(iFront));
+            seed.rear_collective_guess_rpm = max(config.rear_collective_min_rpm, ...
+                target.rear_guide_rpm + config.rear_seed_offsets_rpm(iRear));
+            seedCandidates(end + 1, 1) = localCanonicalizeSeed(seed); %#ok<SAGROW>
+        end
     end
-end
 
-blendSeed = baseSeed;
-blendSeed.name = [guideNameRoot '_blend'];
-blendSeed.source = 'midband_guide_blend';
-blendSeed.tilt_deg = target.tilt_deg;
-blendSeed.vinf_mps = target.vinf_mps;
-blendSeed.front_collective_guess_rpm = max(config.front_collective_min_rpm, ...
-    0.5 * (baseSeed.front_collective_guess_rpm + target.front_guide_rpm));
-blendSeed.rear_collective_guess_rpm = max(config.rear_collective_min_rpm, ...
-    0.5 * (baseSeed.rear_collective_guess_rpm + target.rear_guide_rpm));
-seedCandidates(end + 1, 1) = localCanonicalizeSeed(blendSeed); %#ok<SAGROW>
+    blendSeed = baseSeed;
+    blendSeed.name = [guideNameRoot '_blend'];
+    blendSeed.source = 'midband_guide_blend';
+    blendSeed.tilt_deg = target.tilt_deg;
+    blendSeed.vinf_mps = target.vinf_mps;
+    blendSeed.alpha_guess_deg = localResolveTargetAlphaDeg(target);
+    blendSeed.front_collective_guess_rpm = max(config.front_collective_min_rpm, ...
+        0.5 * (baseSeed.front_collective_guess_rpm + target.front_guide_rpm));
+    blendSeed.rear_collective_guess_rpm = max(config.rear_collective_min_rpm, ...
+        0.5 * (baseSeed.rear_collective_guess_rpm + target.rear_guide_rpm));
+    seedCandidates(end + 1, 1) = localCanonicalizeSeed(blendSeed); %#ok<SAGROW>
+end
 
 seedCandidates = localUniqueSeeds(seedCandidates);
 seedCandidates = localFilterSeedsNearDenseFailures(seedCandidates, masterAttemptSummary, target, config);
@@ -439,9 +460,10 @@ if isempty(seedCandidates)
     baseSeed.source = 'default_midband_base';
     baseSeed.tilt_deg = target.tilt_deg;
     baseSeed.vinf_mps = target.vinf_mps;
+    baseSeed.alpha_guess_deg = localResolveTargetAlphaDeg(target);
     baseSeed.front_collective_guess_rpm = target.front_guide_rpm;
     baseSeed.rear_collective_guess_rpm = target.rear_guide_rpm;
-    baseSeed.theta_guess_deg = 0.0;
+    baseSeed.theta_guess_deg = localResolveTargetAlphaDeg(target);
     baseSeed.delta_f_guess_deg = 0.0;
     baseSeed.delta_e_guess_deg = 0.0;
     return;
@@ -477,13 +499,18 @@ trimCase = struct();
 trimCase.name = target.name;
 trimCase.mode = 'transition_midband_guidegrid';
 trimCase.Vinf_mps = target.vinf_mps;
-trimCase.u_body_mps = target.vinf_mps;
+trimCase.alpha_target_deg = localResolveTargetAlphaDeg(target);
+alphaConstraintMinVinf = localGetField(config, 'alpha_constraint_min_vinf_mps', 0.5);
+trimCase.use_alpha_output_constraint = localGetField(config, 'use_alpha_output_constraint', true) && ...
+    target.vinf_mps >= alphaConstraintMinVinf;
+trimCase.u_body_mps = target.vinf_mps * cosd(trimCase.alpha_target_deg);
 trimCase.v_body_mps = 0.0;
-trimCase.w_body_mps = 0.0;
+trimCase.w_body_mps = target.vinf_mps * sind(trimCase.alpha_target_deg);
 trimCase.front_tilt_deg = target.tilt_deg;
 trimCase.front_tilt_cmd_deg = target.tilt_deg;
 trimCase.use_vinf_output_constraint = true;
-trimCase.use_vertical_speed_output_constraint = true;
+trimCase.use_vertical_speed_output_constraint = localGetField(config, ...
+    'use_vertical_speed_output_constraint', false);
 trimCase.position_steady = [false; false; false];
 trimCase.validate_nonlinear_hold = false;
 trimCase.front_collective_min_rpm = config.front_collective_min_rpm;
@@ -501,7 +528,7 @@ trimCase.mixed_control_known = [false; false; false; false];
 trimCase.body_rates_rad_s = [0; 0; 0];
 trimCase.body_rates_known = [true; true; true];
 trimCase.body_rates_steady = [true; true; true];
-trimCase.body_velocity_known = [true; true; true];
+trimCase.body_velocity_known = [false; true; false];
 trimCase.body_velocity_steady = [true; true; true];
 trimCase.euler_known = [true; false; true];
 trimCase.euler_steady = [true; true; true];
@@ -510,12 +537,15 @@ end
 
 function family = localMakeHoverZeroSurfaceCase(target, seed, config)
 trimCase = localBaseTrimCase(target, config);
+[uGuess, wGuess, thetaGuess] = localResolveVelocityGuess(target, seed);
 trimCase.name = sprintf('%s_hoverZero_%s', target.name, seed.name);
 trimCase.front_collective_known = false;
 trimCase.rear_collective_known = false;
 trimCase.front_collective_guess_rpm = seed.front_collective_guess_rpm;
 trimCase.rear_collective_guess_rpm = seed.rear_collective_guess_rpm;
-trimCase.theta_guess_deg = seed.theta_guess_deg;
+trimCase.u_body_mps = uGuess;
+trimCase.w_body_mps = wGuess;
+trimCase.theta_guess_deg = thetaGuess;
 trimCase.body_velocity_known = [false; true; false];
 trimCase.mixed_control_known = [true; true; true; true];
 trimCase.delta_f_fixed_deg = 0.0;
@@ -531,12 +561,15 @@ end
 
 function family = localMakeFrontRearFreeFlapElevatorCase(target, seed, config)
 trimCase = localBaseTrimCase(target, config);
+[uGuess, wGuess, thetaGuess] = localResolveVelocityGuess(target, seed);
 trimCase.name = sprintf('%s_frontRearFree_%s', target.name, seed.name);
 trimCase.front_collective_known = false;
 trimCase.rear_collective_known = false;
 trimCase.front_collective_guess_rpm = seed.front_collective_guess_rpm;
 trimCase.rear_collective_guess_rpm = seed.rear_collective_guess_rpm;
-trimCase.theta_guess_deg = seed.theta_guess_deg;
+trimCase.u_body_mps = uGuess;
+trimCase.w_body_mps = wGuess;
+trimCase.theta_guess_deg = thetaGuess;
 trimCase.delta_f_guess_deg = seed.delta_f_guess_deg;
 trimCase.delta_e_guess_deg = seed.delta_e_guess_deg;
 trimCase.delta_a_fixed_deg = 0.0;
@@ -551,13 +584,16 @@ end
 
 function family = localMakeRearFixedFlapElevatorCase(target, seed, config)
 trimCase = localBaseTrimCase(target, config);
+[uGuess, wGuess, thetaGuess] = localResolveVelocityGuess(target, seed);
 trimCase.name = sprintf('%s_rearFixed_%s', target.name, seed.name);
 trimCase.front_collective_known = false;
 trimCase.rear_collective_known = true;
 trimCase.rear_collective_fixed_rpm = seed.rear_collective_guess_rpm;
 trimCase.front_collective_guess_rpm = seed.front_collective_guess_rpm;
 trimCase.rear_collective_guess_rpm = seed.rear_collective_guess_rpm;
-trimCase.theta_guess_deg = seed.theta_guess_deg;
+trimCase.u_body_mps = uGuess;
+trimCase.w_body_mps = wGuess;
+trimCase.theta_guess_deg = thetaGuess;
 trimCase.delta_f_guess_deg = seed.delta_f_guess_deg;
 trimCase.delta_e_guess_deg = seed.delta_e_guess_deg;
 trimCase.delta_a_fixed_deg = 0.0;
@@ -572,6 +608,7 @@ end
 
 function family = localMakePropFixedFlapElevatorCase(target, seed, config)
 trimCase = localBaseTrimCase(target, config);
+[uGuess, wGuess, thetaGuess] = localResolveVelocityGuess(target, seed);
 trimCase.name = sprintf('%s_propFixed_%s', target.name, seed.name);
 trimCase.front_collective_known = true;
 trimCase.rear_collective_known = true;
@@ -579,7 +616,9 @@ trimCase.front_collective_fixed_rpm = seed.front_collective_guess_rpm;
 trimCase.rear_collective_fixed_rpm = seed.rear_collective_guess_rpm;
 trimCase.front_collective_guess_rpm = seed.front_collective_guess_rpm;
 trimCase.rear_collective_guess_rpm = seed.rear_collective_guess_rpm;
-trimCase.theta_guess_deg = seed.theta_guess_deg;
+trimCase.u_body_mps = uGuess;
+trimCase.w_body_mps = wGuess;
+trimCase.theta_guess_deg = thetaGuess;
 trimCase.delta_f_guess_deg = seed.delta_f_guess_deg;
 trimCase.delta_e_guess_deg = seed.delta_e_guess_deg;
 trimCase.delta_a_fixed_deg = 0.0;
@@ -615,15 +654,19 @@ if isstruct(trimResult) && isfield(trimResult, 'scheduling')
     attempt.delta_f_deg = rad2deg(localGetField(trimResult.scheduling, 'delta_f_rad', NaN));
     attempt.delta_a_deg = rad2deg(localGetField(trimResult.scheduling, 'delta_a_rad', NaN));
     attempt.delta_e_deg = rad2deg(localGetField(trimResult.scheduling, 'delta_e_rad', NaN));
-    attempt.delta_r_deg = rad2deg(localGetField(trimResult.scheduling, 'delta_r_rad', NaN));
+attempt.delta_r_deg = rad2deg(localGetField(trimResult.scheduling, 'delta_r_rad', NaN));
     attempt.alpha_deg = rad2deg(localGetField(trimResult.scheduling, 'alpha_rad', NaN));
 end
+attempt.alpha_target_deg = localResolveTargetAlphaDeg(target);
 if isstruct(trimResult) && isfield(trimResult, 'Att_Trim_deg') && numel(trimResult.Att_Trim_deg) >= 2
     attempt.theta_deg = trimResult.Att_Trim_deg(2);
 end
 if isstruct(trimResult) && isfield(trimResult, 'Vel_B_BA_Trim') && numel(trimResult.Vel_B_BA_Trim) >= 3
     attempt.u_mps = trimResult.Vel_B_BA_Trim(1);
     attempt.w_mps = trimResult.Vel_B_BA_Trim(3);
+end
+if isfinite(attempt.theta_deg) && isfinite(attempt.alpha_deg)
+    attempt.gamma_deg = attempt.theta_deg - attempt.alpha_deg;
 end
 end
 
@@ -675,7 +718,7 @@ end
 
 if isfield(mapStruct.meta, 'config') && isfield(mapStruct.meta.config, 'update_master_attempt_db_on_checkpoint') && ...
         mapStruct.meta.config.update_master_attempt_db_on_checkpoint
-    localUpdateMasterAttemptDb(summary, masterMat, masterCsv, runPrefix, runOutputDir, rootDir);
+    localUpdateMasterAttemptDb(summary, masterMat, masterCsv, runPrefix, runOutputDir, rootDir, mapStruct.meta.config);
 end
 if isfield(mapStruct.meta, 'config') && isfield(mapStruct.meta.config, 'refresh_canonical_databases_on_checkpoint') && ...
         mapStruct.meta.config.refresh_canonical_databases_on_checkpoint
@@ -683,7 +726,7 @@ if isfield(mapStruct.meta, 'config') && isfield(mapStruct.meta.config, 'refresh_
 end
 end
 
-function localUpdateMasterAttemptDb(summary, masterMat, masterCsv, runPrefix, runOutputDir, rootDir)
+function localUpdateMasterAttemptDb(summary, masterMat, masterCsv, runPrefix, runOutputDir, rootDir, config)
 helperFile = fullfile(rootDir, 'TrimDB_UpdateMaster.m');
 if exist(helperFile, 'file') ~= 2
     return;
@@ -691,15 +734,23 @@ end
 
 try
     dbPaths = TrimDB_Paths(rootDir);
+    if nargin < 7 || ~isstruct(config)
+        config = struct();
+    end
+    databaseDir = localGetField(config, 'database_dir', fileparts(char(masterCsv)));
+    workspacePlotsDir = localGetField(config, 'workspace_plots_dir', dbPaths.workspace_plots_dir);
     updateOptions = struct( ...
         'root_dir', rootDir, ...
-        'database_dir', dbPaths.database_dir, ...
-        'workspace_plots_dir', dbPaths.workspace_plots_dir, ...
+        'database_dir', databaseDir, ...
+        'workspace_plots_dir', workspacePlotsDir, ...
         'run_prefix', runPrefix, ...
         'run_output_dir', runOutputDir, ...
         'source_file', string(runPrefix) + "_direct_db", ...
+        'source_kind', "direct_" + string(localGetField(config, 'trim_formulation', "trim_search")), ...
+        'trim_formulation', string(localGetField(config, 'trim_formulation', "")), ...
         'master_mat_file', masterMat, ...
-        'master_csv_file', masterCsv);
+        'master_csv_file', masterCsv, ...
+        'master_md_file', fullfile(databaseDir, 'trim_attempts.md'));
     TrimDB_UpdateMaster(summary, updateOptions);
 catch ME
     warning('TrimSearch_Engine:MasterDbUpdateFailed', ...
@@ -798,8 +849,11 @@ linearizationPoint.worst_component_normalized = row.worst_component_normalized;
 linearizationPoint.termination_string = char(string(row.termination_string));
 linearizationPoint.tilt_deg = row.tilt_deg;
 linearizationPoint.vinf_mps = row.vinf_mps;
+linearizationPoint.alpha_target_deg = row.alpha_target_deg;
+linearizationPoint.trim_formulation = string(row.trim_formulation);
 linearizationPoint.theta_deg = row.theta_deg;
 linearizationPoint.alpha_deg = row.alpha_deg;
+linearizationPoint.gamma_deg = row.gamma_deg;
 linearizationPoint.u_mps = row.u_mps;
 linearizationPoint.w_mps = row.w_mps;
 linearizationPoint.front_collective_rpm = row.front_collective_rpm;
@@ -865,6 +919,8 @@ row.key = string(sourceRow.key);
 row.name = string(sourceRow.name);
 row.tilt_deg = sourceRow.tilt_deg;
 row.vinf_mps = sourceRow.vinf_mps;
+row.alpha_target_deg = sourceRow.alpha_target_deg;
+row.trim_formulation = string(sourceRow.trim_formulation);
 row.family = string(sourceRow.family);
 row.seed_name = string(sourceRow.seed_name);
 row.success = logical(sourceRow.success);
@@ -880,6 +936,7 @@ row.delta_e_deg = sourceRow.delta_e_deg;
 row.delta_r_deg = sourceRow.delta_r_deg;
 row.theta_deg = sourceRow.theta_deg;
 row.alpha_deg = sourceRow.alpha_deg;
+row.gamma_deg = sourceRow.gamma_deg;
 row.output_file = string(outputFile);
 row.latest_file = string(outputFile);
 end
@@ -890,6 +947,8 @@ row = struct( ...
     'name', "", ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
+    'trim_formulation', "", ...
     'family', "", ...
     'seed_name', "", ...
     'success', false, ...
@@ -905,6 +964,7 @@ row = struct( ...
     'delta_r_deg', NaN, ...
     'theta_deg', NaN, ...
     'alpha_deg', NaN, ...
+    'gamma_deg', NaN, ...
     'output_file', "", ...
     'latest_file', "");
 end
@@ -967,6 +1027,8 @@ summary.key = string({entries.key}');
 summary.name = string({entries.name}');
 summary.tilt_deg = [entries.tilt_deg]';
 summary.vinf_mps = [entries.vinf_mps]';
+summary.alpha_target_deg = [entries.alpha_target_deg]';
+summary.trim_formulation = string({entries.trim_formulation}');
 summary.family = string({entries.family}');
 summary.seed_name = string({entries.seed_name}');
 summary.success = logical([entries.success]');
@@ -986,6 +1048,7 @@ summary.theta_deg = [entries.theta_deg]';
 summary.u_mps = [entries.u_mps]';
 summary.w_mps = [entries.w_mps]';
 summary.alpha_deg = [entries.alpha_deg]';
+summary.gamma_deg = [entries.gamma_deg]';
 summary.termination_string = string({entries.termination_string}');
 summary.linearization_available = false(height(summary), 1);
 summary.linearization_index_source = strings(height(summary), 1);
@@ -1052,6 +1115,7 @@ for i = 1:numel(keepIdx)
     seed.vinf_mps = row.vinf_mps;
     seed.front_collective_guess_rpm = row.front_collective_rpm;
     seed.rear_collective_guess_rpm = row.rear_collective_rpm;
+    seed.alpha_guess_deg = row.alpha_deg;
     seed.theta_guess_deg = row.theta_deg;
     seed.delta_f_guess_deg = row.delta_f_deg;
     seed.delta_a_guess_deg = row.delta_a_deg;
@@ -1113,6 +1177,7 @@ for i = 1:numel(keepIdx)
     seed.vinf_mps = row.vinf_mps;
     seed.front_collective_guess_rpm = row.front_collective_rpm;
     seed.rear_collective_guess_rpm = row.rear_collective_rpm;
+    seed.alpha_guess_deg = localRowValue(row, 'alpha_deg', NaN);
     seed.theta_guess_deg = row.theta_deg;
     seed.delta_f_guess_deg = row.delta_f_deg;
     seed.delta_a_guess_deg = row.delta_a_deg;
@@ -1136,6 +1201,9 @@ if ismember('key', summary.Properties.VariableNames)
 else
     keyMask = abs(summary.tilt_deg - target.tilt_deg) <= 1e-9 & ...
         abs(summary.vinf_mps - target.vinf_mps) <= 1e-9;
+    if ismember('alpha_target_deg', summary.Properties.VariableNames)
+        keyMask = keyMask & abs(summary.alpha_target_deg - localResolveTargetAlphaDeg(target)) <= 1e-9;
+    end
 end
 
 if ~any(keyMask)
@@ -1187,12 +1255,12 @@ if isempty(summary)
 end
 
 requiredNames = { ...
-    'key', 'name', 'tilt_deg', 'vinf_mps', 'family', 'seed_name', ...
+    'key', 'name', 'tilt_deg', 'vinf_mps', 'alpha_target_deg', 'trim_formulation', 'family', 'seed_name', ...
     'success', 'acceptable', 'classification', 'score', 'max_normalized', ...
     'worst_component', 'worst_component_normalized', ...
     'front_collective_rpm', 'rear_collective_rpm', ...
     'delta_f_deg', 'delta_a_deg', 'delta_e_deg', 'delta_r_deg', ...
-    'theta_deg', 'u_mps', 'w_mps', 'alpha_deg', 'termination_string', ...
+    'theta_deg', 'u_mps', 'w_mps', 'alpha_deg', 'gamma_deg', 'termination_string', ...
     'source_run_prefix', 'source_run_dir', 'saved_on'};
 
 for i = 1:numel(requiredNames)
@@ -1226,6 +1294,8 @@ if isempty(summary)
     summary.delta_e_deg = zeros(0,1);
     summary.delta_r_deg = zeros(0,1);
     summary.theta_deg = zeros(0,1);
+    summary.alpha_deg = zeros(0,1);
+    summary.gamma_deg = zeros(0,1);
     return;
 end
 
@@ -1233,7 +1303,7 @@ requiredNames = { ...
     'name', 'tilt_deg', 'vinf_mps', ...
     'front_collective_rpm', 'rear_collective_rpm', ...
     'delta_f_deg', 'delta_a_deg', 'delta_e_deg', 'delta_r_deg', ...
-    'theta_deg'};
+    'theta_deg', 'alpha_deg', 'gamma_deg'};
 
 for i = 1:numel(requiredNames)
     name = requiredNames{i};
@@ -1266,6 +1336,8 @@ summary.key = strings(0,1);
 summary.name = strings(0,1);
 summary.tilt_deg = zeros(0,1);
 summary.vinf_mps = zeros(0,1);
+summary.alpha_target_deg = zeros(0,1);
+summary.trim_formulation = strings(0,1);
 summary.family = strings(0,1);
 summary.seed_name = strings(0,1);
 summary.success = false(0,1);
@@ -1285,6 +1357,7 @@ summary.theta_deg = zeros(0,1);
 summary.u_mps = zeros(0,1);
 summary.w_mps = zeros(0,1);
 summary.alpha_deg = zeros(0,1);
+summary.gamma_deg = zeros(0,1);
 summary.termination_string = strings(0,1);
 summary.source_run_prefix = strings(0,1);
 summary.source_run_dir = strings(0,1);
@@ -1359,6 +1432,7 @@ seed.tilt_deg = entry.tilt_deg;
 seed.vinf_mps = entry.vinf_mps;
 seed.front_collective_guess_rpm = entry.front_collective_rpm;
 seed.rear_collective_guess_rpm = entry.rear_collective_rpm;
+seed.alpha_guess_deg = entry.alpha_deg;
 seed.theta_guess_deg = entry.theta_deg;
 seed.delta_f_guess_deg = entry.delta_f_deg;
 seed.delta_a_guess_deg = entry.delta_a_deg;
@@ -1384,6 +1458,13 @@ seed.delta_e_guess_deg = localGetField(seed, 'delta_e_guess_deg', 0.0);
 seed.delta_r_guess_deg = localGetField(seed, 'delta_r_guess_deg', 0.0);
 seed.front_collective_guess_rpm = max(seed.front_collective_guess_rpm, 0.0);
 seed.rear_collective_guess_rpm = max(seed.rear_collective_guess_rpm, 0.0);
+if ~isfinite(seed.alpha_guess_deg)
+    if isfinite(seed.theta_guess_deg)
+        seed.alpha_guess_deg = seed.theta_guess_deg;
+    else
+        seed.alpha_guess_deg = 0.0;
+    end
+end
 end
 
 function uniqueSeeds = localUniqueSeeds(seedCandidates)
@@ -1391,9 +1472,9 @@ uniqueSeeds = repmat(localSeedTemplate(), 0, 1);
 keys = strings(0, 1);
 for i = 1:numel(seedCandidates)
     seed = localCanonicalizeSeed(seedCandidates(i));
-    key = sprintf('%.1f|%.1f|%.3f|%.3f|%.3f|%.3f|%.3f', ...
+    key = sprintf('%.1f|%.1f|%.3f|%.3f|%.3f|%.3f|%.3f|%.3f', ...
         seed.front_collective_guess_rpm, seed.rear_collective_guess_rpm, ...
-        seed.theta_guess_deg, seed.delta_f_guess_deg, seed.delta_a_guess_deg, ...
+        seed.alpha_guess_deg, seed.theta_guess_deg, seed.delta_f_guess_deg, seed.delta_a_guess_deg, ...
         seed.delta_e_guess_deg, seed.delta_r_guess_deg);
     if any(keys == key)
         continue;
@@ -1427,6 +1508,38 @@ scoreData.worst_component = struct('name', '', 'normalized', inf);
 scoreData.termination_string = localGetField(trimResult, 'terminationString', '');
 end
 
+function [uGuess, wGuess, thetaGuess] = localResolveVelocityGuess(target, seed)
+alphaGuessDeg = localResolveSeedAlphaGuess(seed, target);
+uGuess = target.vinf_mps * cosd(alphaGuessDeg);
+wGuess = target.vinf_mps * sind(alphaGuessDeg);
+
+thetaGuess = localGetField(seed, 'theta_guess_deg', NaN);
+if ~isfinite(thetaGuess)
+    thetaGuess = alphaGuessDeg;
+end
+end
+
+function alphaDeg = localResolveSeedAlphaGuess(seed, target)
+alphaDeg = localGetField(seed, 'alpha_guess_deg', NaN);
+if isfinite(alphaDeg)
+    return;
+end
+
+thetaGuess = localGetField(seed, 'theta_guess_deg', NaN);
+if isfinite(thetaGuess)
+    alphaDeg = thetaGuess;
+else
+    alphaDeg = localResolveTargetAlphaDeg(target);
+end
+end
+
+function alphaDeg = localResolveTargetAlphaDeg(target)
+alphaDeg = localGetField(target, 'alpha_target_deg', NaN);
+if ~isfinite(alphaDeg)
+    alphaDeg = 0.0;
+end
+end
+
 function target = localTargetTemplate()
 target = struct( ...
     'name', '', ...
@@ -1448,6 +1561,7 @@ end
 function attempt = localAttemptTemplate()
 attempt = struct( ...
     'target_key', '', ...
+    'alpha_target_deg', NaN, ...
     'family', '', ...
     'seed_name', '', ...
     'trimCase', struct(), ...
@@ -1470,7 +1584,8 @@ attempt = struct( ...
     'theta_deg', NaN, ...
     'u_mps', NaN, ...
     'w_mps', NaN, ...
-    'alpha_deg', NaN);
+    'alpha_deg', NaN, ...
+    'gamma_deg', NaN);
 end
 
 function entry = localEntryTemplate()
@@ -1479,6 +1594,8 @@ entry = struct( ...
     'name', '', ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
+    'trim_formulation', "", ...
     'family', '', ...
     'seed_name', '', ...
     'success', false, ...
@@ -1499,6 +1616,7 @@ entry = struct( ...
     'u_mps', NaN, ...
     'w_mps', NaN, ...
     'alpha_deg', NaN, ...
+    'gamma_deg', NaN, ...
     'trimCase', struct(), ...
     'trimResult', struct(), ...
     'scoreData', struct(), ...
@@ -1513,6 +1631,7 @@ seed = struct( ...
     'vinf_mps', NaN, ...
     'front_collective_guess_rpm', NaN, ...
     'rear_collective_guess_rpm', NaN, ...
+    'alpha_guess_deg', NaN, ...
     'theta_guess_deg', 0.0, ...
     'delta_f_guess_deg', 0.0, ...
     'delta_a_guess_deg', 0.0, ...
@@ -1531,7 +1650,17 @@ end
 end
 
 function key = localTargetKey(target)
-key = sprintf('tilt_%s_v_%s', localValueLabel(target.tilt_deg), localValueLabel(target.vinf_mps));
+key = sprintf('tilt_%s_v_%s_a_%s', ...
+    localValueLabel(target.tilt_deg), localValueLabel(target.vinf_mps), ...
+    localValueLabel(localResolveTargetAlphaDeg(target)));
+end
+
+function value = localRowValue(row, fieldName, defaultValue)
+if ismember(fieldName, row.Properties.VariableNames)
+    value = row.(fieldName)(1);
+else
+    value = defaultValue;
+end
 end
 
 function value = localGetField(s, field_name, default_value)

@@ -28,7 +28,11 @@ fprintf('Target strategy: %s\n', searchOptions.target_strategy);
 fprintf('Targets: V=[%.1f..%.1f] m/s, %d V-points, %d tilt offsets\n', ...
     min(searchOptions.vinf_grid_mps), max(searchOptions.vinf_grid_mps), ...
     numel(searchOptions.vinf_grid_mps), numel(searchOptions.tilt_offsets_deg));
-fprintf('Writes: master DB + canonical linearization artifacts\n');
+fprintf('Writes: canonical trim-attempt DB');
+if searchOptions.write_linearizations_to_db
+    fprintf(' + linearization artifacts');
+end
+fprintf('\n');
 fprintf('Debug run outputs: %d\n\n', logical(searchOptions.write_debug_run_outputs));
 
 TrimSearch_Engine
@@ -49,10 +53,14 @@ profile = string(localGetField(requestedOptions, 'profile', "guide_grid"));
 opts = localOverlayStruct(localProfileDefaults(profile), requestedOptions);
 opts.profile = string(localGetField(opts, 'profile', "guide_grid"));
 opts.output_prefix = localGetField(opts, 'output_prefix', 'transition_trim_search');
+opts.database_name = localGetField(opts, 'database_name', "");
+opts.trim_formulation = localGetField(opts, 'trim_formulation', "legacy_vinf_tilt");
 opts.target_strategy = string(localGetField(opts, 'target_strategy', "guide_grid"));
+opts.explicit_targets = localGetField(opts, 'explicit_targets', []);
 opts.target_limit = localGetField(opts, 'target_limit', inf);
 opts.vinf_grid_mps = localGetField(opts, 'vinf_grid_mps', 20:2.5:50);
 opts.tilt_offsets_deg = localGetField(opts, 'tilt_offsets_deg', -7.5:2.5:7.5);
+opts.alpha_grid_deg = localGetField(opts, 'alpha_grid_deg', 0.0);
 opts.tilt_grid_deg = localGetField(opts, 'tilt_grid_deg', 0:5:90);
 opts.max_vinf_mps = localGetField(opts, 'max_vinf_mps', max(opts.vinf_grid_mps));
 opts.base_vinf_ceiling_mps = localGetField(opts, 'base_vinf_ceiling_mps', 5.0);
@@ -72,16 +80,22 @@ opts.rear_guide_knot_vinf_mps = localGetField(opts, 'rear_guide_knot_vinf_mps', 
     [0 10 20 30 40 50 60 70 75]);
 opts.rear_guide_knot_rpm = localGetField(opts, 'rear_guide_knot_rpm', ...
     [1780 1670 1500 1350 1220 1080 800 430 100]);
-opts.front_seed_offsets_rpm = localGetField(opts, 'front_seed_offsets_rpm', [-150 -75 0 75 150]);
-opts.rear_seed_offsets_rpm = localGetField(opts, 'rear_seed_offsets_rpm', [-150 -75 0 75 150]);
+opts.front_seed_offsets_rpm = localGetField(opts, 'front_seed_offsets_rpm', [-100 0 100]);
+opts.rear_seed_offsets_rpm = localGetField(opts, 'rear_seed_offsets_rpm', [-100 0 100]);
 opts.front_collective_min_rpm = localGetField(opts, 'front_collective_min_rpm', 600.0);
 opts.rear_collective_min_rpm = localGetField(opts, 'rear_collective_min_rpm', 100.0);
+opts.enable_guide_grid_seeds = localGetField(opts, 'enable_guide_grid_seeds', true);
 opts.enable_low_speed_physics_seeds = localGetField(opts, 'enable_low_speed_physics_seeds', false);
-opts.family_names = localGetField(opts, 'family_names', {'front_rear_free_flap_elevator', 'rear_fixed_flap_elevator'});
+opts.enable_transition_force_balance_seeds = localGetField(opts, 'enable_transition_force_balance_seeds', false);
+opts.transition_force_balance_seed_count = localGetField(opts, 'transition_force_balance_seed_count', 3);
+opts.transition_force_balance_gamma_grid_deg = localGetField(opts, 'transition_force_balance_gamma_grid_deg', [-5 0 5 10 15]);
+opts.transition_force_balance_gamma_bounds_deg = localGetField(opts, 'transition_force_balance_gamma_bounds_deg', [-10 25]);
+opts.family_names = localGetField(opts, 'family_names', {'front_rear_free_flap_elevator'});
 opts.stop_after_exact = localGetField(opts, 'stop_after_exact', false);
 opts.checkpoint_every = localGetField(opts, 'checkpoint_every', 5);
 opts.write_debug_run_outputs = localGetField(opts, 'write_debug_run_outputs', false);
-opts.write_linearizations_to_db = localGetField(opts, 'write_linearizations_to_db', true);
+opts.write_linearizations_to_db = localGetField(opts, 'write_linearizations_to_db', false);
+opts.use_vertical_speed_output_constraint = localGetField(opts, 'use_vertical_speed_output_constraint', false);
 opts.refresh_canonical_databases_on_checkpoint = localGetField(opts, 'refresh_canonical_databases_on_checkpoint', false);
 opts.score_options = localGetField(opts, 'score_options', struct('profile', 'transition', 'hold_horizon_s', 2.0));
 end
@@ -105,8 +119,7 @@ switch profile
         defaults.enable_low_speed_physics_seeds = true;
         defaults.neighbor_seed_count = 3;
         defaults.history_seed_count = 3;
-        defaults.family_names = {'hover_zero_surface', 'front_rear_free_flap_elevator', ...
-            'rear_fixed_flap_elevator', 'prop_fixed_flap_elevator'};
+        defaults.family_names = {'front_rear_free_flap_elevator'};
         defaults.front_seed_offsets_rpm = [-100 0 100];
         defaults.rear_seed_offsets_rpm = [-100 0 100];
 
@@ -119,8 +132,35 @@ switch profile
         defaults.skip_known_good_targets = true;
         defaults.neighbor_seed_count = 5;
         defaults.history_seed_count = 5;
-        defaults.family_names = {'front_rear_free_flap_elevator', 'rear_fixed_flap_elevator', ...
-            'prop_fixed_flap_elevator'};
+        defaults.family_names = {'front_rear_free_flap_elevator'};
+
+    case "force_balance"
+        defaults.output_prefix = 'transition_trim_force_balance_search';
+        defaults.target_strategy = "guide_grid";
+        defaults.enable_transition_force_balance_seeds = true;
+        defaults.enable_guide_grid_seeds = false;
+        defaults.neighbor_seed_count = 0;
+        defaults.history_seed_count = 0;
+        defaults.family_names = {'front_rear_free_flap_elevator'};
+        defaults.transition_force_balance_seed_count = 3;
+        defaults.transition_force_balance_gamma_grid_deg = [-5 0 5 10 15];
+        defaults.transition_force_balance_gamma_bounds_deg = [-10 25];
+
+    case "force_balance_newmap"
+        defaults.output_prefix = 'transition_trim_force_balance_newmap';
+        defaults.database_name = "trim_vinf_alpha_v1";
+        defaults.trim_formulation = "vinf_alpha_force_balance_v1";
+        defaults.target_strategy = "guide_grid";
+        defaults.enable_transition_force_balance_seeds = true;
+        defaults.enable_guide_grid_seeds = false;
+        defaults.neighbor_seed_count = 1;
+        defaults.history_seed_count = 1;
+        defaults.anchor_max_vinf_mps = inf;
+        defaults.anchor_max_tilt_error_deg = inf;
+        defaults.family_names = {'front_rear_free_flap_elevator'};
+        defaults.transition_force_balance_seed_count = 3;
+        defaults.transition_force_balance_gamma_grid_deg = [-5 0 5 10 15];
+        defaults.transition_force_balance_gamma_bounds_deg = [-10 25];
 
     case "blueband"
         defaults.output_prefix = 'transition_trim_blueband_search';

@@ -1,13 +1,16 @@
-# eVTOL_Simulation Dependency Map
+# eVTOL Flight Sim Dependency Map
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:48 PDT
 
-This document maps the active `eVTOL_Simulation` workflow after the filename
-cleanup. It is intentionally focused on live files, not archived campaigns.
+This document maps the active repo-root workflow after the filename cleanup. It
+is intentionally focused on live files, not archived campaigns.
 
 ## Current Naming Convention
 
 Top-level workflow scripts now use short, role-first names:
+
+`Init_Main.m` is the canonical initialization script. There is no separate
+one-line initialization wrapper.
 
 | Old name | New name | Role |
 | --- | --- | --- |
@@ -47,9 +50,9 @@ Low-speed search helpers were shortened:
 
 ```mermaid
 flowchart TD
-  Init["Init_Main.m"] --> Full["Full_Sim_Init.m"]
-  Full --> Aircraft["aircraft_def.m"]
-  Full --> Scenario["scenario_def.m"]
+  Init["Init_Main.m"] --> Aircraft["aircraft_def.m"]
+  Init --> Scenario["scenario_def.m"]
+  Init --> PolarMAT["databases/aero_polars/final_airfoil_polar_tables.mat"]
 
   Trim["Trim_Main.m"] --> Init
   Trim --> TrimCase["trim_evtol_case.m"]
@@ -121,6 +124,13 @@ flowchart TD
 - `Run_Main.m` consumes `initData`, `trimResult`, optional `controllerData`, and optional `runCase`.
 - `Run_Main.m` prepares workspace variables for `Wrapper.slx`.
 - `plot_outputs.m`, `plotting/plot_report_responses.m`, and `plotting/plot_transition_debug.m` consume wrapper outputs after a run.
+- `plotting/plot_aero_polars.m` reads `databases/aero_polars/final_airfoil_polar_tables.mat` directly for aero inspection plots.
+
+## Support Asset Dependencies
+
+- `Init_Main.m` looks for AVL polar tables at `databases/aero_polars/final_airfoil_polar_tables.mat` first.
+- For compatibility with restored/old layouts, it can also read `scripts/avl/generated/final_airfoil_polar_tables.mat` or `../scripts/avl/generated/final_airfoil_polar_tables.mat`.
+- INDI surface-map helpers require these generated AVL polar tables; they do not generate aircraft-coefficient fallback polars.
 
 ## Archived Cleanup Items
 

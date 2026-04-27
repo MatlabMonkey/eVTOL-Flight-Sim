@@ -205,6 +205,8 @@ controller_gain_lqr = localPadControllerGain(controller_gain_lqr);
 
 V_mem_init = runSpec.airData_cmd(:);
 accel_mem_init = [0; 0; 0];
+actuator_mem_init = [rotor_total_init(:); prop.tilt.init(:); surface_init(:)];
+angular_accel_mem_init = [0; 0; 0];
 
 % Publish the wrapper-facing aliases explicitly so this works the same way
 % whether the script is run from the command window, an editor action, or
@@ -223,6 +225,8 @@ assignin('base', 'controller_trim_cmd', controller_trim_cmd);
 assignin('base', 'controller_gain_lqr', controller_gain_lqr);
 assignin('base', 'V_mem_init', V_mem_init);
 assignin('base', 'accel_mem_init', accel_mem_init);
+assignin('base', 'actuator_mem_init', actuator_mem_init);
+assignin('base', 'angular_accel_mem_init', angular_accel_mem_init);
 assignin('base', 'prop', prop);
 assignin('base', 'wingL', wingL);
 assignin('base', 'wingR', wingR);
@@ -240,6 +244,8 @@ runContext.rear_collective_cmd = rear_collective_cmd;
 runContext.surface_trim = [deltaLW_trim; deltaRW_trim; deltaLT_trim; deltaRT_trim];
 runContext.surface_init = surface_init;
 runContext.rotor_total_init = rotor_total_init;
+runContext.actuator_mem_init = actuator_mem_init;
+runContext.angular_accel_mem_init = angular_accel_mem_init;
 runContext.airData_cmd = runSpec.airData_cmd(:);
 runContext.useController = controller_enable;
 runContext.cmds = cmds;
@@ -359,12 +365,12 @@ end
 end
 
 function value = localPadControllerStateRef(in)
-value = zeros(12, 20);
+value = zeros(24, 20);
 sz = size(in);
 if isempty(in)
     return;
 end
-rows = min(sz(1), 12);
+rows = min(sz(1), 24);
 cols = min(sz(2), 20);
 value(1:rows, 1:cols) = in(1:rows, 1:cols);
 if cols < 20 && cols >= 1

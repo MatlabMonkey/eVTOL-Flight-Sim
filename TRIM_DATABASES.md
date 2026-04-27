@@ -1,6 +1,6 @@
 # Trim Databases
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:22 PDT
 
 This is the practical guide for trim/search/controller database use.
 
@@ -53,9 +53,12 @@ The normal handoff workflow needs these files in `databases/`:
 - `controller_schedule.mat`
 - `controller_schedule.csv`
 - `controller_schedule.md`
+- `aero_polars/final_airfoil_polar_tables.mat`
 
 `controller_schedule.mat` is the key controller-facing file. It already inlines
 the reduced linear models and trim data needed by `build_corridor_lqr_controller`.
+`aero_polars/final_airfoil_polar_tables.mat` is the runtime aero-polar table
+used by `Init_Main` for the LUT aero blocks.
 
 ## Optional Generated Artifacts
 

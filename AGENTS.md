@@ -1,8 +1,9 @@
-# Agent Notes For eVTOL_Simulation
+# Agent Notes For eVTOL Flight Sim
 
-Last reviewed: 2026-04-25 20:48 PDT
+Last reviewed: 2026-04-26 17:48 PDT
 
-This is the active MATLAB/Simulink eVTOL workspace. Treat `archive/` as
+This is the active MATLAB/Simulink eVTOL workspace. The active folder is the
+repo root, not a nested `eVTOL_Simulation/` subfolder. Treat `archive/` as
 historical unless the user explicitly asks for it.
 
 ## Read First
@@ -31,6 +32,13 @@ The active models are:
 - `eVTOL_lib.slx`
 
 Treat `.slx` files as source, not generated junk.
+
+Generated aero polars are durable data, not scratch output:
+`databases/aero_polars/final_airfoil_polar_tables.mat` is loaded directly by
+`Init_Main`. INDI surface-map tools require those generated AVL polar tables
+and do not fall back to coefficient-generated aircraft polars. `scripts/` is
+restored support tooling for rebuilding or validating those polars, but the
+runtime workflow should not depend on keeping every old script.
 
 ## Trim/Search Rules
 

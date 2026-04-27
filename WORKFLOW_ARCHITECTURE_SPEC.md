@@ -1,11 +1,14 @@
 # eVTOL Simulation Workflow Architecture
 
-Last reviewed: 2026-04-25 17:03 PDT
+Last reviewed: 2026-04-26 17:30 PDT
 
 Status: design-intent reference. For the current implemented workflow, read
 `README.md` and `docs/EV_SIMULATION_WORKFLOW_MAP.md` first.
 
-This note captures the intended workflow architecture we discussed for the `eVTOL_Simulation` folder. It is meant for teammates and future agents, and it describes the **target design**, not necessarily every detail of the current implementation.
+This note captures the intended workflow architecture we discussed for the active
+repo-root workspace. It is meant for teammates and future agents, and it
+describes the **target design**, not necessarily every detail of the current
+implementation.
 
 ## Summary
 
@@ -502,7 +505,7 @@ Not “one model must do everything.”
 At the cleanest level, this is roughly what we had in mind:
 
 ```text
-eVTOL_Simulation/
+eVTOL-Flight-Sim/
   Init_Main.m
   Trim_Main.m
   Build_Controller_EVTOL_Cruise.m

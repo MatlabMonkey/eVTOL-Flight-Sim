@@ -13,6 +13,9 @@ slprj/
 # MATLAB cache/preferences (project-local)
 *.mldatx
 *.autosave
+.simcache/
+.simcode/
+workspace_plots/
 
 # Code generation outputs
 codegen/

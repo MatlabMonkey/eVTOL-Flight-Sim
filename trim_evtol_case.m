@@ -20,6 +20,7 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
     trim_debug = localGetField(options, 'debug', false);
     emit_summary = localGetField(options, 'emitSummary', true);
     emit_linear_summary = localGetField(options, 'emitLinearSummary', true);
+    compute_linearization = localGetField(options, 'computeLinearization', true);
 
     trimSpec = localBuildTrimSpec(initData, trimCase);
     trim_model_name = trimSpec.modelName;
@@ -60,6 +61,11 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
         trim_display_report = 'iter';
     end
     trim_opts = findopOptions('DisplayReport', trim_display_report);
+    warningStateRank = warning('off', 'MATLAB:rankDeficientMatrix');
+    warningStateSing = warning('off', 'MATLAB:singularMatrix');
+    warningStateNearSing = warning('off', 'MATLAB:nearlySingularMatrix');
+    warningCleanup = onCleanup(@() localRestoreWarningStates( ...
+        warningStateRank, warningStateSing, warningStateNearSing)); %#ok<NASGU>
     [op_trim, op_report] = findop(trim_model_name, opspec, trim_opts);
 
     if emit_summary
@@ -67,7 +73,7 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
     end
 
     is_exact_trim = contains(op_report.TerminationString, 'successfully met', 'IgnoreCase', true);
-    if trim_debug || ~is_exact_trim
+    if trim_debug
         localPrintTrimReportSummary(op_report);
     end
 
@@ -130,7 +136,7 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
                          direct_surface_trim; ...
                          mixed_control_trim];
 
-    if emit_summary
+    if emit_summary && compute_linearization
         fprintf('\n--- Trim Results ---\n');
         fprintf('Att_Trim (deg): phi=%.3f theta=%.3f psi=%.3f\n', ...
             Att_Trim_deg(1), Att_Trim_deg(2), Att_Trim_deg(3));
@@ -147,63 +153,6 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
             physical_surface_trim(1) * 180 / pi, physical_surface_trim(2) * 180 / pi, ...
             physical_surface_trim(3) * 180 / pi, physical_surface_trim(4) * 180 / pi);
         fprintf('Linearizing about trim ...\n');
-    end
-
-    sys_full = linearize(trim_model_name, op_trim);
-    [A_full, B_full, C_full, D_full] = ssdata(sys_full);
-
-    if trim_verbose
-        fprintf('Full linearized system: %d states, %d inputs, %d outputs\n', ...
-            size(A_full, 1), size(B_full, 2), size(C_full, 1));
-        fprintf('\n=== sys_full.StateName ===\n');
-        for i = 1:numel(sys_full.StateName)
-            fprintf('  [%2d] %s\n', i, sys_full.StateName{i});
-        end
-        fprintf('\n=== sys_full.InputName ===\n');
-        for i = 1:numel(sys_full.InputName)
-            fprintf('  [%2d] %s\n', i, sys_full.InputName{i});
-        end
-    end
-
-    idx_eul_lin = localFindStateNameIndices(sys_full.StateName, 'euler_attitude_state', 3);
-    idx_rates_lin = localFindStateNameIndices(sys_full.StateName, 'body_rates_state', 3);
-    idx_vel_lin = localFindStateNameIndices(sys_full.StateName, 'body_velocity_state', 3);
-
-    idx_phi   = idx_eul_lin(1);
-    idx_theta = idx_eul_lin(2);
-    idx_psi   = idx_eul_lin(3);
-    idx_P     = idx_rates_lin(1);
-    idx_Q     = idx_rates_lin(2);
-    idx_R     = idx_rates_lin(3);
-    idx_u     = idx_vel_lin(1);
-    idx_v     = idx_vel_lin(2);
-    idx_w     = idx_vel_lin(3);
-
-    ctrl_names = {'front_coll_rpm', 'rear_coll_rpm', 'delta_f', 'delta_a', 'delta_e', 'delta_r'};
-    state_names_9 = {'phi', 'theta', 'psi', 'u', 'v', 'w', 'P', 'Q', 'R'};
-    idx9 = [idx_phi, idx_theta, idx_psi, idx_u, idx_v, idx_w, idx_P, idx_Q, idx_R];
-
-    % Input order from the current Trim_Plant is:
-    %   1:4 Motor_RPM_cmd, 5:6 Tilt_angles_cmd, 7 Front_RPM_collective,
-    %   8 Rear_RPM_collective, 9:12 mixed controls
-    %   [delta_f delta_a delta_e delta_r].
-    B_front_collective = B_full(idx9, 7);
-    B_rear_collective = B_full(idx9, 8);
-    B_ctrl = [B_front_collective, B_rear_collective, B_full(idx9, 9:12)];
-
-    sys_ss_9state = ss(A_full(idx9, idx9), ...
-                       B_ctrl, ...
-                       eye(numel(idx9)), ...
-                       zeros(numel(idx9), numel(ctrl_names)));
-
-    sys_ss_9state.StateName = state_names_9(:);
-    sys_ss_9state.InputName = ctrl_names(:);
-
-    if emit_linear_summary
-        fprintf('9-state rigid-body system eigenvalues:\n');
-        lambda_9 = eig(sys_ss_9state.A);
-        disp(lambda_9);
-        localPrintEigenmodeSummary(sys_ss_9state.A, state_names_9);
     end
 
     trimResult = struct();
@@ -248,16 +197,85 @@ function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
     trimResult.trim.trimPlantInputs = trim_plant_inputs;
 
     trimResult.linear = struct();
-    trimResult.linear.sys_full = sys_full;
-    trimResult.linear.A_full = A_full;
-    trimResult.linear.B_full = B_full;
-    trimResult.linear.C_full = C_full;
-    trimResult.linear.D_full = D_full;
-    trimResult.linear.sys_ss_9state = sys_ss_9state;
+    trimResult.linear.sys_full = [];
+    trimResult.linear.A_full = [];
+    trimResult.linear.B_full = [];
+    trimResult.linear.C_full = [];
+    trimResult.linear.D_full = [];
+    trimResult.linear.sys_ss_9state = [];
     trimResult.linear.sys_ss_13state = [];
-    trimResult.linear.B_front_collective = B_front_collective;
-    trimResult.linear.B_rear_collective = B_rear_collective;
-    trimResult.linear.reduced_model_available = true;
+    trimResult.linear.B_front_collective = [];
+    trimResult.linear.B_rear_collective = [];
+    trimResult.linear.reduced_model_available = false;
+
+    if compute_linearization
+        sys_full = linearize(trim_model_name, op_trim);
+        [A_full, B_full, C_full, D_full] = ssdata(sys_full);
+
+        if trim_verbose
+            fprintf('Full linearized system: %d states, %d inputs, %d outputs\n', ...
+                size(A_full, 1), size(B_full, 2), size(C_full, 1));
+            fprintf('\n=== sys_full.StateName ===\n');
+            for i = 1:numel(sys_full.StateName)
+                fprintf('  [%2d] %s\n', i, sys_full.StateName{i});
+            end
+            fprintf('\n=== sys_full.InputName ===\n');
+            for i = 1:numel(sys_full.InputName)
+                fprintf('  [%2d] %s\n', i, sys_full.InputName{i});
+            end
+        end
+
+        idx_eul_lin = localFindStateNameIndices(sys_full.StateName, 'euler_attitude_state', 3);
+        idx_rates_lin = localFindStateNameIndices(sys_full.StateName, 'body_rates_state', 3);
+        idx_vel_lin = localFindStateNameIndices(sys_full.StateName, 'body_velocity_state', 3);
+
+        idx_phi   = idx_eul_lin(1);
+        idx_theta = idx_eul_lin(2);
+        idx_psi   = idx_eul_lin(3);
+        idx_P     = idx_rates_lin(1);
+        idx_Q     = idx_rates_lin(2);
+        idx_R     = idx_rates_lin(3);
+        idx_u     = idx_vel_lin(1);
+        idx_v     = idx_vel_lin(2);
+        idx_w     = idx_vel_lin(3);
+
+        ctrl_names = {'front_coll_rpm', 'rear_coll_rpm', 'delta_f', 'delta_a', 'delta_e', 'delta_r'};
+        state_names_9 = {'phi', 'theta', 'psi', 'u', 'v', 'w', 'P', 'Q', 'R'};
+        idx9 = [idx_phi, idx_theta, idx_psi, idx_u, idx_v, idx_w, idx_P, idx_Q, idx_R];
+
+        % Input order from the current Trim_Plant is:
+        %   1:4 Motor_RPM_cmd, 5:6 Tilt_angles_cmd, 7 Front_RPM_collective,
+        %   8 Rear_RPM_collective, 9:12 mixed controls
+        %   [delta_f delta_a delta_e delta_r].
+        B_front_collective = B_full(idx9, 7);
+        B_rear_collective = B_full(idx9, 8);
+        B_ctrl = [B_front_collective, B_rear_collective, B_full(idx9, 9:12)];
+
+        sys_ss_9state = ss(A_full(idx9, idx9), ...
+                           B_ctrl, ...
+                           eye(numel(idx9)), ...
+                           zeros(numel(idx9), numel(ctrl_names)));
+
+        sys_ss_9state.StateName = state_names_9(:);
+        sys_ss_9state.InputName = ctrl_names(:);
+
+        if emit_linear_summary
+            fprintf('9-state rigid-body system eigenvalues:\n');
+            lambda_9 = eig(sys_ss_9state.A);
+            disp(lambda_9);
+            localPrintEigenmodeSummary(sys_ss_9state.A, state_names_9);
+        end
+
+        trimResult.linear.sys_full = sys_full;
+        trimResult.linear.A_full = A_full;
+        trimResult.linear.B_full = B_full;
+        trimResult.linear.C_full = C_full;
+        trimResult.linear.D_full = D_full;
+        trimResult.linear.sys_ss_9state = sys_ss_9state;
+        trimResult.linear.B_front_collective = B_front_collective;
+        trimResult.linear.B_rear_collective = B_rear_collective;
+        trimResult.linear.reduced_model_available = true;
+    end
 
     trimResult.scheduling = struct();
     trimResult.scheduling.Vinf_mps = Vel_W_Trim(1);
@@ -308,8 +326,10 @@ function trimSpec = localBuildTrimSpec(initData, trimCase)
     end
 
     trimSpec.use_vinf_output_constraint = localGetField(trimCase, 'use_vinf_output_constraint', false);
+    trimSpec.use_alpha_output_constraint = localGetField(trimCase, 'use_alpha_output_constraint', false);
     trimSpec.use_vertical_speed_output_constraint = localGetField(trimCase, ...
         'use_vertical_speed_output_constraint', false);
+    trimSpec.alpha_target_rad = localResolveAlphaTarget(trimCase);
 
     trimSpec.motor_rpm_cmd = localGetField(trimCase, 'motor_rpm_cmd', zeros(4, 1));
     trimSpec.front_collective_guess_rpm = localGetField(trimCase, 'front_collective_guess_rpm', 1200.0);
@@ -465,6 +485,11 @@ function opspec = localBuildCruiseOpspec(trimSpec)
         opspec.Outputs(8).Known = true;
     end
 
+    if trimSpec.use_alpha_output_constraint
+        opspec.Outputs(9).y = trimSpec.alpha_target_rad;
+        opspec.Outputs(9).Known = true;
+    end
+
     opspec.Inputs(1).u = motor_rpm_cmd;
     opspec.Inputs(1).Known = true(n_motor, 1);
     opspec.Inputs(1).Min = zeros(n_motor, 1);
@@ -546,6 +571,17 @@ function value = localGetField(s, field_name, default_value)
         value = s.(field_name);
     else
         value = default_value;
+    end
+end
+
+function alpha_target_rad = localResolveAlphaTarget(trimCase)
+    if isfield(trimCase, 'alpha_target_rad') && ~isempty(trimCase.alpha_target_rad)
+        alpha_target_rad = trimCase.alpha_target_rad;
+    elseif isfield(trimCase, 'alpha_target_deg') && ~isempty(trimCase.alpha_target_deg)
+        alpha_target_rad = deg2rad(trimCase.alpha_target_deg);
+    else
+        alpha_target_rad = atan2(localGetField(trimCase, 'w_body_mps', 0.0), ...
+            localGetField(trimCase, 'u_body_mps', localGetField(trimCase, 'Vinf_mps', 0.0)));
     end
 end
 
@@ -752,4 +788,13 @@ function localPrintTrimReportSummary(op_report)
         fprintf('           known = [%s]\n', num2str(known, ' %d'));
     end
     fprintf('--- End Trim Diagnostics ---\n\n');
+end
+
+function localRestoreWarningStates(varargin)
+for i = 1:nargin
+    state = varargin{i};
+    if isstruct(state) && isfield(state, 'identifier') && isfield(state, 'state')
+        warning(state.state, state.identifier);
+    end
+end
 end

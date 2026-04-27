@@ -5,11 +5,10 @@ TrimDB_Build.m,file,trim_db,keep,Canonical controller-schedule builder and legac
 TrimDB_BackfillLinearizations.m,file,trim_db,archive-only,Legacy recovery path for regenerating missing linearizations from old run-local replay MAT/checkpoint content.,,manual,"Not part of the clean current workflow now that new searches write linked linearizationPoint artifacts directly."
 TrimWorkspace_Clean.m,file,cleanup,keep,Current cleanup policy script for aggressively pruning generated trim-search residue.,,manual,Supports lean DB-only retention profiles.
 Front_Propeller_Loads.m,file,physics,keep,Low-level propeller load helper likely consumed from model logic rather than plain-text call sites.,,model,Do not drop without checking model blocks.
-Full_Sim_Init.m,file,core_runtime,keep,"Canonical initialization script that sets paths, aircraft constants, defaults, and output directories.",,yes,Root of the active initialize/trim/run path.
+Init_Main.m,file,core_runtime,keep,"Canonical initialization script that sets paths, aircraft constants, defaults, and output directories.",,yes,Root of the active initialize/trim/run path.
 GROUP_WORKFLOW_GUIDE.html,file,docs,archive-only,HTML workflow guide is stale and references removed case folders and older helper names.,,no,Keep only in zip/archive if historical onboarding context is wanted.
 Good Transitions,dir,demos,archive-only,"Folder is only a holding area for manual demo residue, not an active workflow dependency.",,no,Covered children follow GRP_DEMO_RESIDUE.
 Good Transitions/*,group,demos,archive-only,Manual demo residue that depends on archived prep scripts and is not part of the current controller/database path.,GRP_DEMO_RESIDUE,no,Contains one-off demo video/output aliases only.
-Init_Main.m,file,core_runtime,keep,Preferred initialization entrypoint for the active workspace workflow.,,yes,Thin wrapper over Full_Sim_Init.
 Plant.slx,file,models,keep,Active plant model in the current runtime/trim architecture.,,yes,One of the four primary source models.
 TrimSearch_Preview.m,file,trim_search,keep,Preview tool for the surviving generic mid-band guide-grid trim search.,,manual,Useful before launching a new scored search.
 TrimDB_Plot.m,file,plotting,keep,Canonical DB-native plotter for consolidated trim and controller databases.,,manual,Replaces ad hoc CSV plotting.
@@ -63,15 +62,17 @@ planning/ev_simulation_keep_drop_manifest.csv,file,planning,keep,Machine-readabl
 planning/select_corridor_path_from_db.m,file,planning,keep,Canonical selector for building smooth controller-ready paths from controller_schedule.,,yes,Core planning helper for the current corridor workflow.
 plot_outputs.m,file,plotting,keep,Current lightweight Wrapper output plotter for base-workspace out data.,,manual,Generic active plotting helper.
 plotting,dir,plotting,keep,Active report-figure plotting subtree.,,yes,Small current subtree.
+plotting/plot_aero_polars.m,file,plotting,keep,Current aero-polar plotter that reads databases/aero_polars/final_airfoil_polar_tables.mat directly.,,manual,Use for wing/tail CL/CD/Cm and derived aero plots without legacy source files.
 plotting/plot_report_responses.m,file,plotting,keep,Current concise report-figure generator for states and actuators.,,manual,Current report plotting helper.
 plotting/plot_transition_debug.m,file,plotting,keep,Current transition-debug report plotting helper with scheduled overlays.,,manual,Useful for corridor-controller debugging.
-render_aircraft.m,file,visualization,keep,Reusable aircraft visualization helper still used by Full_Sim_Init and report helpers.,,yes,Current visualization primitive.
+render_aircraft.m,file,visualization,keep,Reusable aircraft visualization helper still used by initialization and report helpers.,,yes,Current visualization primitive.
 report_plots_final,dir,generated_outputs,keep,Active output directory for report figures and videos from kept plotting/report helpers.,,yes,Keep directory; generated contents follow GRP_REPORT_MEDIA.
 report_plots_final/*,group,generated_outputs,remove-local,"Generated plots and videos are reproducible outputs, not source-of-truth assets.",GRP_REPORT_MEDIA,no,Safe local deletion after export or archival.
 scenario_def.m,file,visualization,keep,Small scenario helper still used by render_aircraft presets and default visualization paths.,,yes,"Legacy, but still live and harmless."
 score_trim_point.m,file,trim_search,keep,Current reusable near-trim scoring helper for evaluating quasi-steady transition points.,,yes,Used by the surviving scored search workflow.
 trim_evtol_case.m,file,core_trim,keep,Shared trim-and-linearize implementation behind the active trim entrypoints.,,yes,Core trim engine.
-databases,dir,trim_db,keep,Canonical durable storage for trim/controller databases.,,yes,"Clean handoff contains trim_attempts.* and controller_schedule.*; new searches may generate linked linearization artifacts later."
+databases,dir,trim_db,keep,Canonical durable storage for trim/controller/aero databases.,,yes,"Clean handoff contains trim_attempts.*, controller_schedule.*, and aero_polars/final_airfoil_polar_tables.mat; new searches may generate linked linearization artifacts later."
+databases/aero_polars/final_airfoil_polar_tables.mat,file,aero_data,keep,Generated AVL polar table MAT loaded by Init_Main for LUT aero blocks and required by INDI surface-map tools.,GRP_DATABASE_CANONICAL_DB,yes,Durable runtime data promoted out of the restored scripts folder.
 databases/trim_attempts.*,group,trim_db,keep,Canonical master trim-attempt database files created by direct trim-search writes.,GRP_DATABASE_CANONICAL_DB,yes,Durable source-of-truth search memory.
 databases/controller_schedule.*,group,trim_db,keep,Canonical controller-ready schedule database files derived from the master DB and used by controller builders.,GRP_DATABASE_CANONICAL_DB,yes,Durable controller-facing data.
 databases/controller_schedule_missing_linearizations.csv,file,trim_db,remove-local,Optional rebuild diagnostic for controller candidates that still lack matched linearization artifacts.,GRP_DATABASE_CANONICAL_DB,no,Not needed for normal controller use; TrimDB_Build keeps diagnostics in the MAT DB by default.

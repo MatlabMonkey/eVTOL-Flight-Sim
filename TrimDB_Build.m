@@ -253,6 +253,9 @@ end
 if ~isfield(opts, 'database_dir') || isempty(opts.database_dir)
     opts.database_dir = dbPaths.database_dir;
 end
+if ~isfield(opts, 'trim_formulation') || isempty(opts.trim_formulation)
+    opts.trim_formulation = "";
+end
 if exist(opts.database_dir, 'dir') ~= 7
     mkdir(opts.database_dir);
 end
@@ -649,6 +652,8 @@ row.seed_name = localStringField(raw, {'seed_name'});
 row.phase = localStringField(raw, {'phase'});
 row.tilt_deg = localNumericField(raw, {'tilt_deg', 'target_tilt_deg'});
 row.vinf_mps = localNumericField(raw, {'vinf_mps', 'target_vinf_mps'});
+row.alpha_target_deg = localNumericField(raw, {'alpha_target_deg', 'target_alpha_deg'});
+row.trim_formulation = localStringField(raw, {'trim_formulation'});
 row.rear_fixed_rpm = localNumericField(raw, {'rear_fixed_rpm'});
 row.success = localLogicalFieldOrDefault(raw, {'success'}, false);
 
@@ -684,6 +689,7 @@ row.theta_deg = localNumericField(raw, {'theta_deg'});
 row.u_mps = localNumericField(raw, {'u_mps'});
 row.w_mps = localNumericField(raw, {'w_mps'});
 row.alpha_deg = localNumericField(raw, {'alpha_deg'});
+row.gamma_deg = localNumericField(raw, {'gamma_deg'});
 row.termination_string = localStringField(raw, {'termination_string', 'termination'});
 row.max_state_residual = localNumericField(raw, {'max_state_residual'});
 row.attempt_count = localNumericField(raw, {'attempt_count'});
@@ -700,6 +706,8 @@ row = struct( ...
     'key', "", ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
+    'trim_formulation', "", ...
     'family', "", ...
     'seed_name', "", ...
     'phase', "", ...
@@ -721,6 +729,7 @@ row = struct( ...
     'u_mps', NaN, ...
     'w_mps', NaN, ...
     'alpha_deg', NaN, ...
+    'gamma_deg', NaN, ...
     'termination_string', "", ...
     'max_state_residual', NaN, ...
     'attempt_count', NaN, ...
@@ -1093,7 +1102,7 @@ bestUnique.class_rank = [];
 bestUnique.score_rank = [];
 bestUnique.max_norm_rank = [];
 bestUnique.original_index = [];
-bestUnique = sortrows(bestUnique, {'tilt_deg', 'vinf_mps', 'family', 'rear_fixed_rpm'});
+bestUnique = sortrows(bestUnique, {'tilt_deg', 'vinf_mps', 'alpha_target_deg', 'family', 'rear_fixed_rpm'});
 end
 
 function key = localUniquePointKey(row)
@@ -1103,6 +1112,8 @@ if isfinite(row.rear_fixed_rpm)
 end
 key = "tilt_" + localNumberToken(row.tilt_deg) + ...
     "__vinf_" + localNumberToken(row.vinf_mps) + ...
+    "__alpha_" + localNumberToken(row.alpha_target_deg) + ...
+    "__form_" + localSanitizeToken(row.trim_formulation) + ...
     "__family_" + localSanitizeToken(row.family) + ...
     "__" + rearFixedToken;
 end
@@ -1120,7 +1131,7 @@ else
 end
 
 candidateTable = masterBestUnique(candidateMask, :);
-candidateTable = sortrows(candidateTable, {'tilt_deg', 'vinf_mps', 'family'});
+candidateTable = sortrows(candidateTable, {'tilt_deg', 'vinf_mps', 'alpha_target_deg', 'family'});
 
 points = repmat(localEmptyControllerPoint(), 0, 1);
 missingRows = repmat(localEmptyMissingLinearizationRow(), 0, 1);
@@ -1173,6 +1184,8 @@ point = struct( ...
     'name', "", ...
     'tilt_deg', NaN, ...
     'vinf_mps', NaN, ...
+    'alpha_target_deg', NaN, ...
+    'trim_formulation', "", ...
     'family', "", ...
     'score', NaN, ...
     'classification', "", ...
@@ -1186,6 +1199,7 @@ point = struct( ...
     'u_mps', NaN, ...
     'w_mps', NaN, ...
     'alpha_deg', NaN, ...
+    'gamma_deg', NaN, ...
     'linearization_available', false, ...
     'linearization_latest_file', "", ...
     'Att_Trim_deg', zeros(3, 1), ...
@@ -1216,6 +1230,8 @@ point.key = row.key;
 point.name = row.name;
 point.tilt_deg = row.tilt_deg;
 point.vinf_mps = row.vinf_mps;
+point.alpha_target_deg = row.alpha_target_deg;
+point.trim_formulation = row.trim_formulation;
 point.family = row.family;
 point.score = row.score;
 point.classification = row.classification;
@@ -1229,6 +1245,7 @@ point.theta_deg = row.theta_deg;
 point.u_mps = row.u_mps;
 point.w_mps = row.w_mps;
 point.alpha_deg = row.alpha_deg;
+point.gamma_deg = row.gamma_deg;
 point.linearization_available = false;
 point.linearization_latest_file = row.linearization_latest_file;
 point.Att_Trim_deg = [0; localValueOrZero(row.theta_deg); 0];
@@ -1282,6 +1299,8 @@ point.key = row.key;
 point.name = row.name;
 point.tilt_deg = row.tilt_deg;
 point.vinf_mps = row.vinf_mps;
+point.alpha_target_deg = row.alpha_target_deg;
+point.trim_formulation = row.trim_formulation;
 point.family = row.family;
 point.score = row.score;
 point.classification = row.classification;
@@ -1295,6 +1314,7 @@ point.theta_deg = row.theta_deg;
 point.u_mps = row.u_mps;
 point.w_mps = row.w_mps;
 point.alpha_deg = row.alpha_deg;
+point.gamma_deg = row.gamma_deg;
 point.linearization_available = true;
 point.linearization_latest_file = row.linearization_latest_file;
 point.Att_Trim_deg = attDeg;
@@ -1392,10 +1412,10 @@ end
 
 function summaryTable = localControllerSummaryTable(pointTable)
 keepVars = { ...
-    'key', 'name', 'tilt_deg', 'vinf_mps', 'family', 'score', 'classification', ...
+    'key', 'name', 'tilt_deg', 'vinf_mps', 'alpha_target_deg', 'trim_formulation', 'family', 'score', 'classification', ...
     'front_collective_rpm', 'rear_collective_rpm', ...
     'delta_f_deg', 'delta_a_deg', 'delta_e_deg', 'delta_r_deg', ...
-    'theta_deg', 'u_mps', 'w_mps', 'alpha_deg', ...
+    'theta_deg', 'u_mps', 'w_mps', 'alpha_deg', 'gamma_deg', ...
     'linearization_available', 'linearization_latest_file'};
 summaryTable = pointTable(:, keepVars);
 end
@@ -1412,6 +1432,8 @@ key = strings(n, 1);
 name = strings(n, 1);
 tilt_deg = nan(n, 1);
 vinf_mps = nan(n, 1);
+alpha_target_deg = nan(n, 1);
+trim_formulation = strings(n, 1);
 family = strings(n, 1);
 score = nan(n, 1);
 classification = strings(n, 1);
@@ -1425,6 +1447,7 @@ theta_deg = nan(n, 1);
 u_mps = nan(n, 1);
 w_mps = nan(n, 1);
 alpha_deg = nan(n, 1);
+gamma_deg = nan(n, 1);
 linearization_available = false(n, 1);
 linearization_latest_file = strings(n, 1);
 
@@ -1434,6 +1457,8 @@ for i = 1:n
     name(i) = string(point.name);
     tilt_deg(i) = point.tilt_deg;
     vinf_mps(i) = point.vinf_mps;
+    alpha_target_deg(i) = point.alpha_target_deg;
+    trim_formulation(i) = string(point.trim_formulation);
     family(i) = string(point.family);
     score(i) = point.score;
     classification(i) = string(point.classification);
@@ -1447,14 +1472,15 @@ for i = 1:n
     u_mps(i) = point.u_mps;
     w_mps(i) = point.w_mps;
     alpha_deg(i) = point.alpha_deg;
+    gamma_deg(i) = point.gamma_deg;
     linearization_available(i) = logical(point.linearization_available);
     linearization_latest_file(i) = string(point.linearization_latest_file);
 end
 
 summaryTable = table( ...
-    key, name, tilt_deg, vinf_mps, family, score, classification, ...
+    key, name, tilt_deg, vinf_mps, alpha_target_deg, trim_formulation, family, score, classification, ...
     front_collective_rpm, rear_collective_rpm, delta_f_deg, delta_a_deg, ...
-    delta_e_deg, delta_r_deg, theta_deg, u_mps, w_mps, alpha_deg, ...
+    delta_e_deg, delta_r_deg, theta_deg, u_mps, w_mps, alpha_deg, gamma_deg, ...
     linearization_available, linearization_latest_file);
 end
 
@@ -1468,7 +1494,7 @@ end
 points = points(:);
 summaryTable = localControllerSummaryFromPointArray(points);
 summaryTable.original_index = (1:height(summaryTable)).';
-summaryTable = sortrows(summaryTable, {'tilt_deg', 'vinf_mps', 'family', 'key'});
+summaryTable = sortrows(summaryTable, {'tilt_deg', 'vinf_mps', 'alpha_target_deg', 'family', 'key'});
 sortIdx = summaryTable.original_index;
 summaryTable.original_index = [];
 points = points(sortIdx);
@@ -1480,6 +1506,8 @@ tbl.key = strings(0, 1);
 tbl.name = strings(0, 1);
 tbl.tilt_deg = zeros(0, 1);
 tbl.vinf_mps = zeros(0, 1);
+tbl.alpha_target_deg = zeros(0, 1);
+tbl.trim_formulation = strings(0, 1);
 tbl.family = strings(0, 1);
 tbl.score = zeros(0, 1);
 tbl.classification = strings(0, 1);
@@ -1493,6 +1521,7 @@ tbl.theta_deg = zeros(0, 1);
 tbl.u_mps = zeros(0, 1);
 tbl.w_mps = zeros(0, 1);
 tbl.alpha_deg = zeros(0, 1);
+tbl.gamma_deg = zeros(0, 1);
 tbl.linearization_available = false(0, 1);
 tbl.linearization_latest_file = strings(0, 1);
 end
