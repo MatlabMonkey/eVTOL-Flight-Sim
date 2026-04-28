@@ -5,6 +5,7 @@ function result = Run_INDI_PathSegment_Test(segmentIndex, opts)
 %   Run_INDI_PathSegment_Test
 %   Run_INDI_PathSegment_Test(1)
 %   Run_INDI_PathSegment_Test(3, struct('stopTime_s', 90))
+%   Run_INDI_PathSegment_Test([], struct('full_path', true, 'stopTime_s', 240))
 %
 % This is a narrow diagnostic runner. It builds the normal INDI transition
 % controller, slices it to path point N -> N+1, then runs the standard
@@ -30,13 +31,17 @@ else
 end
 
 nPts = localScheduleCount(fullControllerData);
-if segmentIndex < 1 || segmentIndex >= nPts
-    error('Run_INDI_PathSegment_Test:BadSegmentIndex', ...
-        'segmentIndex must be in [1, %d]. Received %d.', nPts - 1, segmentIndex);
+if opts.full_path
+    cols = 1:nPts;
+    controllerData = fullControllerData;
+else
+    if segmentIndex < 1 || segmentIndex >= nPts
+        error('Run_INDI_PathSegment_Test:BadSegmentIndex', ...
+            'segmentIndex must be in [1, %d]. Received %d.', nPts - 1, segmentIndex);
+    end
+    cols = [segmentIndex, segmentIndex + 1];
+    controllerData = localSliceControllerData(fullControllerData, cols);
 end
-
-cols = [segmentIndex, segmentIndex + 1];
-controllerData = localSliceControllerData(fullControllerData, cols);
 trimResult = localBuildStartTrimResult(controllerData);
 runCase = localBuildRunCase(segmentIndex, opts);
 
@@ -47,7 +52,11 @@ assignin('base', 'trimResult', trimResult);
 assignin('base', 'runCase', runCase);
 
 fprintf('\n=== INDI Path Segment Test ===\n');
-fprintf('Segment        : %d -> %d\n', segmentIndex, segmentIndex + 1);
+if opts.full_path
+    fprintf('Segment        : full path (%d points)\n', nPts);
+else
+    fprintf('Segment        : %d -> %d\n', segmentIndex, segmentIndex + 1);
+end
 fprintf('Run name       : %s\n', runCase.name);
 fprintf('Stop time      : %.3f s\n', runCase.stopTime_s);
 fprintf('Sim attempt    : %d\n', runCase.attemptSimulation);
@@ -68,8 +77,13 @@ if opts.plot && strcmp(runResult.status, 'simulated')
     simSource = evalin('base', 'out');
     cmdSource = evalin('base', 'cmds');
     try
+        if opts.full_path
+            plotTitle = 'INDI Full Path';
+        else
+            plotTitle = sprintf('INDI Segment %d to %d', segmentIndex, segmentIndex + 1);
+        end
         reportData = plot_transition_debug(simSource, cmdSource, filenameStem, ...
-            sprintf('INDI Segment %d to %d', segmentIndex, segmentIndex + 1));
+            plotTitle);
     catch ME
         warning('Run_INDI_PathSegment_Test:PlotFailed', ...
             'Simulation completed, but plot_transition_debug failed: %s', ME.message);
@@ -120,6 +134,9 @@ end
 if ~isfield(opts, 'save_summary') || isempty(opts.save_summary)
     opts.save_summary = true;
 end
+if ~isfield(opts, 'full_path') || isempty(opts.full_path)
+    opts.full_path = false;
+end
 if ~isfield(opts, 'builder_opts')
     opts.builder_opts = [];
 end
@@ -144,9 +161,14 @@ controllerData = fullControllerData;
 controllerData.name = sprintf('%s_segment_%02d_to_%02d', ...
     fullControllerData.name, cols(1), cols(2));
 
+fullScheduleCount = localScheduleCount(fullControllerData);
 controllerData.controller_state_ref = fullControllerData.controller_state_ref(:, cols);
 controllerData.controller_trim_cmd = fullControllerData.controller_trim_cmd(:, cols);
 controllerData.controller_gain_lqr = fullControllerData.controller_gain_lqr(:, :, cols);
+if size(fullControllerData.controller_gain_lqr, 3) > fullScheduleCount
+    controllerData.controller_gain_lqr = cat(3, controllerData.controller_gain_lqr, ...
+        fullControllerData.controller_gain_lqr(:, :, (fullScheduleCount + 1):end));
+end
 controllerData.controller_state_ref(12, :) = [0.0, 1.0];
 
 pathTable = fullControllerData.schedule_table(cols, :);
@@ -201,8 +223,12 @@ end
 
 function runCase = localBuildRunCase(segmentIndex, opts)
 runCase = struct();
-runCase.name = sprintf('INDI_PathSegment_%02d_to_%02d_%gs', ...
-    segmentIndex, segmentIndex + 1, opts.stopTime_s);
+if opts.full_path
+    runCase.name = sprintf('INDI_FullPath_%gs', opts.stopTime_s);
+else
+    runCase.name = sprintf('INDI_PathSegment_%02d_to_%02d_%gs', ...
+        segmentIndex, segmentIndex + 1, opts.stopTime_s);
+end
 runCase.useController = true;
 runCase.attemptSimulation = opts.attemptSimulation;
 runCase.stopTime_s = opts.stopTime_s;

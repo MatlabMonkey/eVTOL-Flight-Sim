@@ -199,9 +199,11 @@ default_controller_trim_cmd = [ ...
 controller_state_ref = localGetStructField(controllerDataSafe, 'controller_state_ref', default_controller_state_ref);
 controller_trim_cmd = localGetStructField(controllerDataSafe, 'controller_trim_cmd', default_controller_trim_cmd);
 controller_gain_lqr = localGetStructField(controllerDataSafe, 'controller_gain_lqr', K_lqr_cruise);
+controller_runtime_g_map = localGetStructField(controllerDataSafe, 'controller_runtime_g_map', []);
 controller_state_ref = localPadControllerStateRef(controller_state_ref);
 controller_trim_cmd = localPadControllerTrimCmd(controller_trim_cmd);
 controller_gain_lqr = localPadControllerGain(controller_gain_lqr);
+controller_runtime_g_map = localPadControllerGain(controller_runtime_g_map);
 
 V_mem_init = runSpec.airData_cmd(:);
 accel_mem_init = [0; 0; 0];
@@ -223,6 +225,7 @@ assignin('base', 'controller_id', controller_id);
 assignin('base', 'controller_state_ref', controller_state_ref);
 assignin('base', 'controller_trim_cmd', controller_trim_cmd);
 assignin('base', 'controller_gain_lqr', controller_gain_lqr);
+assignin('base', 'controller_runtime_g_map', controller_runtime_g_map);
 assignin('base', 'V_mem_init', V_mem_init);
 assignin('base', 'accel_mem_init', accel_mem_init);
 assignin('base', 'actuator_mem_init', actuator_mem_init);
@@ -393,25 +396,33 @@ end
 end
 
 function value = localPadControllerGain(in)
-value = zeros(6, 9, 20);
+pageCount = localControllerGainPageCapacity();
 if isempty(in)
+    value = zeros(6, 9, pageCount);
     return;
 end
 
 if ndims(in) < 3
+    value = zeros(6, 9, pageCount);
     rows = min(size(in, 1), 6);
     cols = min(size(in, 2), 9);
-    value(1:rows, 1:cols, 1:20) = repmat(in(1:rows, 1:cols), 1, 1, 20);
+    value(1:rows, 1:cols, 1:pageCount) = repmat(in(1:rows, 1:cols), 1, 1, pageCount);
     return;
 end
 
+value = zeros(6, 9, pageCount);
 rows = min(size(in, 1), 6);
 cols = min(size(in, 2), 9);
-pages = min(size(in, 3), 20);
+pages = min(size(in, 3), pageCount);
 value(1:rows, 1:cols, 1:pages) = in(1:rows, 1:cols, 1:pages);
-if pages < 20 && pages >= 1
-    value(1:rows, 1:cols, pages+1:20) = repmat(value(1:rows, 1:cols, pages), 1, 1, 20 - pages);
+if pages < pageCount && pages >= 1
+    value(1:rows, 1:cols, pages+1:pageCount) = ...
+        repmat(value(1:rows, 1:cols, pages), 1, 1, pageCount - pages);
 end
+end
+
+function pageCount = localControllerGainPageCapacity()
+pageCount = 20000;
 end
 
 function runSpec = localApplyRunCaseOverrides(runSpec, runCase)

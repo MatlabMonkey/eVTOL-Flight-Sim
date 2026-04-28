@@ -255,7 +255,8 @@ controller_k_v_i = 0.0;
 controller_id = 0; % 0=hold trim, 1-5=LQR variants, 6=scheduled INDI transition
 controller_state_ref = zeros(24, 20); % first column/page for trim-point controllers, full schedule for path controllers
 controller_trim_cmd = zeros(6, 20); % [front; rear; df; da; de; dr] across the schedule columns
-controller_gain_lqr = zeros(6, 9, 20);
+controller_gain_lqr = zeros(6, 9, 20000);
+controller_runtime_g_map = zeros(6, 9, 20000);
 front_collective_min_rpm = 0.0;
 front_collective_max_rpm = 7000.0;
 rear_collective_min_rpm = 0.0;

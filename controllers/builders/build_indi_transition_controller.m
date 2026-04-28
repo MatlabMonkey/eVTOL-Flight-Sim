@@ -50,11 +50,12 @@ for idx = 1:nPts
     stateSchedule(17, idx) = opts.gating.settle_accel_norm;
     stateSchedule(18, idx) = opts.gating.settle_time_s;
     stateSchedule(19, idx) = opts.gating.segment_ramp_time_s;
-    stateSchedule(20, idx) = opts.outer_loop.ku;
-    stateSchedule(21, idx) = opts.outer_loop.kw;
-    stateSchedule(22, idx) = opts.outer_loop.kq;
-    stateSchedule(23, idx) = opts.outer_loop.ktheta;
-    stateSchedule(24, idx) = opts.outer_loop.accel_error_clip;
+    outerAtPoint = localOuterLoopAtPoint(row, opts.outer_loop);
+    stateSchedule(20, idx) = outerAtPoint.ku;
+    stateSchedule(21, idx) = outerAtPoint.kw;
+    stateSchedule(22, idx) = outerAtPoint.kq;
+    stateSchedule(23, idx) = outerAtPoint.ktheta;
+    stateSchedule(24, idx) = outerAtPoint.accel_error_clip;
 
     trimSchedule(:, idx) = localTrimVectorFromPathRow(row);
     G = localBuildEffectivenessAtPoint(row, indiMaps, plant);
@@ -62,6 +63,15 @@ for idx = 1:nPts
     indiSchedule(4, 1:4, idx) = opts.allocation.control_regularization(:).';
     indiSchedule(5, 1:3, idx) = opts.allocation.virtual_error_weights(:).';
     indiSchedule(6, 1:4, idx) = opts.allocation.delta_eta_limits(:).';
+    indiSchedule(6, 5, idx) = opts.allocation.rotor_trim_feedforward_blend;
+    indiSchedule(6, 6, idx) = opts.allocation.surface_trim_feedforward_blend;
+end
+
+runtimeGMap = zeros(6, 9, 1);
+runtimeGInfo = struct('enabled', false);
+if opts.runtime_g.enabled
+    [runtimeGMap, runtimeGInfo] = localBuildRuntimeSurfaceGMap( ...
+        indiMaps, plant, opts.runtime_g);
 end
 
 controllerData = struct();
@@ -73,6 +83,7 @@ controllerData.controller_id = opts.controller_id;
 controllerData.controller_state_ref = stateSchedule;
 controllerData.controller_trim_cmd = trimSchedule;
 controllerData.controller_gain_lqr = indiSchedule;
+controllerData.controller_runtime_g_map = runtimeGMap;
 controllerData.schedule_count = nPts;
 controllerData.schedule_progress = progress(:);
 controllerData.schedule_tilt_deg = pathTable.tilt_deg;
@@ -83,6 +94,7 @@ controllerData.path_debug = pathDebug;
 controllerData.gating_opts = opts.gating;
 controllerData.outer_loop = opts.outer_loop;
 controllerData.allocation = opts.allocation;
+controllerData.runtime_g = runtimeGInfo;
 controllerData.trim_db_file = opts.trim_db_file;
 controllerData.indi_map_file = opts.indi_map_file;
 controllerData.x_trim = stateSchedule(1:9, :);
@@ -103,6 +115,11 @@ fprintf('Controller id  : %d\n', controllerData.controller_id);
 fprintf('Variant ctrlMode: %d\n', controllerData.variant_ctrl_mode);
 fprintf('Trim DB        : %s\n', opts.trim_db_file);
 fprintf('INDI map DB    : %s\n', opts.indi_map_file);
+if isfield(runtimeGInfo, 'enabled') && runtimeGInfo.enabled
+    fprintf('Runtime G map  : %s (%d x %d x %d grid, %d packed pages)\n', ...
+        runtimeGInfo.entry_name, runtimeGInfo.n_vinf, runtimeGInfo.n_alpha, ...
+        runtimeGInfo.n_delta, runtimeGInfo.page_count);
+end
 fprintf('\nSelected path:\n');
 localDisplaySelectedPath(pathTable);
 fprintf('=== INDI Transition Build Complete ===\n\n');
@@ -136,11 +153,15 @@ end
 if ~isfield(opts, 'allocation') || isempty(opts.allocation)
     opts.allocation = struct();
 end
+if ~isfield(opts, 'runtime_g') || isempty(opts.runtime_g)
+    opts.runtime_g = struct();
+end
 
 opts.path = localApplyPathDefaults(opts.path);
 opts.gating = localApplyGatingDefaults(opts.gating);
 opts.outer_loop = localApplyOuterLoopDefaults(opts.outer_loop);
 opts.allocation = localApplyAllocationDefaults(opts.allocation);
+opts.runtime_g = localApplyRuntimeGDefaults(opts.runtime_g);
 end
 
 function path = localApplyPathDefaults(path)
@@ -242,10 +263,25 @@ end
 
 function outer = localApplyOuterLoopDefaults(outer)
 outer = localDefaultScalar(outer, 'ku', 0.08);
+outer = localDefaultScalar(outer, 'ku_high_speed', 0.16);
+outer = localDefaultScalar(outer, 'ku_schedule_start_vinf_mps', 50.0);
+outer = localDefaultScalar(outer, 'ku_schedule_end_vinf_mps', 70.0);
 outer = localDefaultScalar(outer, 'kw', 0.20);
+outer = localDefaultScalar(outer, 'kw_high_speed', 0.65);
 outer = localDefaultScalar(outer, 'kq', 0.35);
 outer = localDefaultScalar(outer, 'ktheta', 0.45);
+outer = localDefaultScalar(outer, 'ktheta_high_speed', 1.20);
 outer = localDefaultScalar(outer, 'accel_error_clip', 2.0);
+end
+
+function outerAtPoint = localOuterLoopAtPoint(row, outer)
+outerAtPoint = outer;
+lambda = (row.vinf_mps - outer.ku_schedule_start_vinf_mps) / ...
+    max(outer.ku_schedule_end_vinf_mps - outer.ku_schedule_start_vinf_mps, 1.0);
+lambda = min(max(lambda, 0.0), 1.0);
+outerAtPoint.ku = (1.0 - lambda) * outer.ku + lambda * outer.ku_high_speed;
+outerAtPoint.kw = (1.0 - lambda) * outer.kw + lambda * outer.kw_high_speed;
+outerAtPoint.ktheta = (1.0 - lambda) * outer.ktheta + lambda * outer.ktheta_high_speed;
 end
 
 function allocation = localApplyAllocationDefaults(allocation)
@@ -258,15 +294,51 @@ end
 if ~isfield(allocation, 'delta_eta_limits') || isempty(allocation.delta_eta_limits)
     allocation.delta_eta_limits = [5.0e5; 5.0e5; deg2rad(2.0); deg2rad(2.0)];
 end
+if isfield(allocation, 'trim_feedforward_blend') && ...
+        ~isempty(allocation.trim_feedforward_blend)
+    legacyBlend = allocation.trim_feedforward_blend;
+else
+    legacyBlend = [];
+end
+if ~isfield(allocation, 'rotor_trim_feedforward_blend') || ...
+        isempty(allocation.rotor_trim_feedforward_blend)
+    if isempty(legacyBlend)
+        allocation.rotor_trim_feedforward_blend = 0.0;
+    else
+        allocation.rotor_trim_feedforward_blend = legacyBlend;
+    end
+end
+if ~isfield(allocation, 'surface_trim_feedforward_blend') || ...
+        isempty(allocation.surface_trim_feedforward_blend)
+    allocation.surface_trim_feedforward_blend = 0.0;
+end
 allocation.control_regularization = allocation.control_regularization(:);
 allocation.virtual_error_weights = allocation.virtual_error_weights(:);
 allocation.delta_eta_limits = allocation.delta_eta_limits(:);
+allocation.rotor_trim_feedforward_blend = ...
+    min(max(allocation.rotor_trim_feedforward_blend, 0.0), 1.0);
+allocation.surface_trim_feedforward_blend = ...
+    min(max(allocation.surface_trim_feedforward_blend, 0.0), 1.0);
+end
+
+function runtimeG = localApplyRuntimeGDefaults(runtimeG)
+runtimeG = localDefaultLogical(runtimeG, 'enabled', false);
+if ~isfield(runtimeG, 'entry_name') || isempty(runtimeG.entry_name)
+    runtimeG.entry_name = "stall_boundary_delta_alpha_dense";
+end
 end
 
 function s = localDefaultScalar(s, fieldName, value)
 if ~isfield(s, fieldName) || isempty(s.(fieldName))
     s.(fieldName) = value;
 end
+end
+
+function s = localDefaultLogical(s, fieldName, value)
+if ~isfield(s, fieldName) || isempty(s.(fieldName))
+    s.(fieldName) = value;
+end
+s.(fieldName) = logical(s.(fieldName));
 end
 
 function localDisplaySelectedPath(pathTable)
@@ -285,7 +357,12 @@ if exist(dbFile, 'file') ~= 2
         'Trim attempt DB not found: %s', dbFile);
 end
 
-data = load(dbFile);
+try
+    data = load(dbFile);
+catch ME
+    trimTable = localLoadTrimCandidateTableCsvFallback(dbFile, ME);
+    return;
+end
 if isfield(data, 'transitionTrimMasterAttemptDB')
     db = data.transitionTrimMasterAttemptDB;
     if isfield(db, 'master_attempt_db_best_unique_points')
@@ -303,6 +380,20 @@ end
 
 error('build_indi_transition_controller:UnsupportedTrimDb', ...
     'Could not find a supported trim table in %s.', dbFile);
+end
+
+function trimTable = localLoadTrimCandidateTableCsvFallback(dbFile, loadError)
+[dbDir, dbBase, ~] = fileparts(dbFile);
+csvFile = fullfile(dbDir, [dbBase '.csv']);
+if exist(csvFile, 'file') ~= 2
+    rethrow(loadError);
+end
+
+warning('build_indi_transition_controller:TrimMatLoadFailedCsvFallback', ...
+    ['Could not load trim MAT DB "%s" (%s). Falling back to CSV "%s". ', ...
+     'This usually means another process is writing the MAT file.'], ...
+    dbFile, loadError.message, csvFile);
+trimTable = readtable(csvFile, 'TextType', 'string');
 end
 
 function indiMaps = localLoadIndiMaps(mapFile)
@@ -344,12 +435,37 @@ if isempty(bestRows)
 end
 
 pathTable = candidateTable(bestRows, :);
+[pathTable, keptPathMask] = localDropConsecutiveDuplicatePathRows(pathTable);
+if height(pathTable) < 2
+    error('build_indi_transition_controller:PathTooShortAfterDedupe', ...
+        'Selected INDI path collapsed to fewer than two unique kinematic points.');
+end
 pathTable.path_index = (1:height(pathTable)).';
 pathTable.path_progress = localPathProgress(pathTable).';
 debug = struct();
 debug.candidate_meta = candidateMeta;
-debug.selected_source_rows = bestRows(:);
+debug.selected_source_rows = bestRows(keptPathMask);
+debug.dropped_duplicate_path_points = sum(~keptPathMask);
 debug.effective_alpha_opts = localEffectiveAlphaDebugOptions(pathOpts);
+end
+
+function [pathTable, keepMask] = localDropConsecutiveDuplicatePathRows(pathTable)
+keepMask = true(height(pathTable), 1);
+if height(pathTable) <= 1
+    return;
+end
+
+for i = 2:height(pathTable)
+    sameKinematics = abs(pathTable.vinf_mps(i) - pathTable.vinf_mps(i - 1)) < 1e-9 && ...
+        abs(pathTable.tilt_deg(i) - pathTable.tilt_deg(i - 1)) < 1e-9 && ...
+        abs(pathTable.alpha_deg(i) - pathTable.alpha_deg(i - 1)) < 1e-9 && ...
+        abs(pathTable.theta_deg(i) - pathTable.theta_deg(i - 1)) < 1e-9;
+    if sameKinematics
+        keepMask(i) = false;
+    end
+end
+
+pathTable = pathTable(keepMask, :);
 end
 
 function optsDebug = localEffectiveAlphaDebugOptions(pathOpts)
@@ -694,6 +810,90 @@ if progress(end) > 0
 else
     progress = linspace(0.0, 1.0, n);
 end
+end
+
+function [runtimeMap, info] = localBuildRuntimeSurfaceGMap(indiMaps, plant, runtimeG)
+mapEntry = localSelectRuntimeMapEntry(indiMaps, runtimeG.entry_name);
+map = mapEntry.map;
+mass = plant.Mass;
+iyy = plant.J(2, 2);
+
+vGrid = map.grid.vinf_mps(:);
+aGrid = map.grid.alpha_deg(:);
+dGrid = map.grid.delta_deg(:);
+nV = numel(vGrid);
+nA = numel(aGrid);
+nD = numel(dGrid);
+nDataPages = nV * nA * nD;
+nGridValues = nV + nA + nD;
+nGridPages = ceil(nGridValues / 54);
+
+headerPage = 1;
+gridStartPage = headerPage + 1;
+dataStartPage = gridStartPage + nGridPages;
+nPagesOut = dataStartPage + nDataPages - 1;
+runtimeMap = zeros(6, 9, nPagesOut);
+
+marker = 6606.0;
+runtimeMap(1, 1:6, headerPage) = [marker, nV, nA, nD, nGridPages, dataStartPage];
+
+gridFlat = [vGrid; aGrid; dGrid];
+for idx = 1:numel(gridFlat)
+    pageOffset = floor((idx - 1) / 54);
+    offsetInPage = idx - pageOffset * 54;
+    row = ceil(offsetInPage / 9);
+    col = offsetInPage - (row - 1) * 9;
+    runtimeMap(row, col, gridStartPage + pageOffset) = gridFlat(idx);
+end
+
+for iD = 1:nD
+    for iA = 1:nA
+        for iV = 1:nV
+            dataPage = dataStartPage + localRuntimeMapLinearIndex(iV, iA, iD, nV, nA) - 1;
+            flapForce = squeeze(map.flap.dF_drad_N_per_rad(iV, iA, iD, :));
+            flapMoment = squeeze(map.flap.dM_drad_Nm_per_rad(iV, iA, iD, :));
+            elevForce = squeeze(map.elevator.dF_drad_N_per_rad(iV, iA, iD, :));
+            elevMoment = squeeze(map.elevator.dM_drad_Nm_per_rad(iV, iA, iD, :));
+
+            runtimeMap(1, 1:6, dataPage) = [ ...
+                flapForce(1) / mass, flapForce(3) / mass, flapMoment(2) / iyy, ...
+                elevForce(1) / mass, elevForce(3) / mass, elevMoment(2) / iyy];
+        end
+    end
+end
+
+info = struct();
+info.enabled = true;
+info.entry_name = string(mapEntry.name);
+info.n_vinf = nV;
+info.n_alpha = nA;
+info.n_delta = nD;
+info.header_page = headerPage;
+info.grid_start_page = gridStartPage;
+info.data_start_page = dataStartPage;
+info.page_count = nPagesOut;
+end
+
+function mapEntry = localSelectRuntimeMapEntry(indiMaps, entryName)
+entries = indiMaps.entries;
+wanted = string(entryName);
+for idx = 1:numel(entries)
+    if string(entries(idx).name) == wanted
+        mapEntry = entries(idx);
+        return;
+    end
+end
+available = strings(numel(entries), 1);
+for idx = 1:numel(entries)
+    available(idx) = string(entries(idx).name);
+end
+error('build_indi_transition_controller:MissingRuntimeGEntry', ...
+    'Runtime G map entry "%s" was not found. Available entries: %s', ...
+    wanted, strjoin(available, ', '));
+end
+
+function idx = localRuntimeMapLinearIndex(iV, iA, iD, nV, nA)
+idx = (iD - 1) * nV * nA + (iA - 1) * nV + iV;
 end
 
 function G = localBuildEffectivenessAtPoint(row, indiMaps, plant)

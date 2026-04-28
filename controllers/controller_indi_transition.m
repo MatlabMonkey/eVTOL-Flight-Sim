@@ -1,8 +1,8 @@
 function [u_cmd, tilt_cmd_deg, scheduler_debug] = controller_indi_transition( ...
     airData_cmd, tilt_angles_cmd, x_meas, accel_meas, actuator_state_meas, ...
     angular_accel_meas, x_ref_schedule, trim_cmd_schedule, indi_schedule, ...
-    surface_limit_rad, front_collective_min_rpm, front_collective_max_rpm, ...
-    rear_collective_min_rpm, rear_collective_max_rpm)
+    runtime_g_map, surface_limit_rad, front_collective_min_rpm, ...
+    front_collective_max_rpm, rear_collective_min_rpm, rear_collective_max_rpm)
 %CONTROLLER_INDI_TRANSITION Longitudinal transition controller using INDI.
 %
 % Schedule packing:
@@ -18,6 +18,8 @@ function [u_cmd, tilt_cmd_deg, scheduler_debug] = controller_indi_transition( ..
 %   indi_schedule(4,1:4,i)     = control regularization weights
 %   indi_schedule(5,1:3,i)     = virtual-axis weights
 %   indi_schedule(6,1:4,i)     = per-sample delta-eta limits
+%   indi_schedule(6,5,i)       = rotor trim-feedforward blend [0 measured, 1 trim]
+%   indi_schedule(6,6,i)       = surface trim-feedforward blend [0 measured, 1 trim]
 %
 % The acceleration input is treated as body-frame specific force. Therefore
 % the trim feedforward target includes gravity projected into body axes.
@@ -72,20 +74,28 @@ current_idx = min(max(current_idx, int32(1)), int32(nPts));
 
 x_ref = localBlendState(x_ref_schedule, idxLo, idxHi, lambda);
 trim_cmd = localBlendTrim(trim_cmd_schedule, idxLo, idxHi, lambda);
-G = localBlendEffectiveness(indi_schedule, idxLo, idxHi, lambda);
 w_eta = localBlendScheduleVector(indi_schedule, 4, 4, idxLo, idxHi, lambda, ...
     [2.0e-7; 2.0e-7; 6.0; 6.0]);
 w_nu = localBlendScheduleVector(indi_schedule, 5, 3, idxLo, idxHi, lambda, ...
     [1.0; 1.0; 0.9]);
 delta_eta_limit = localBlendScheduleVector(indi_schedule, 6, 4, idxLo, idxHi, lambda, ...
     [2.0e6; 2.0e6; deg2rad(10.0); deg2rad(10.0)]);
+rotor_trim_feedforward_blend = localBlendScheduleMatrixScalar(indi_schedule, 6, 5, ...
+    idxLo, idxHi, lambda, 0.0);
+surface_trim_feedforward_blend = localBlendScheduleMatrixScalar(indi_schedule, 6, 6, ...
+    idxLo, idxHi, lambda, 0.0);
 
 outer = localOuterLoopSettings(x_ref_schedule, idxLo, idxHi, lambda);
 nu_meas = localMeasuredVirtualAcceleration(accel_meas, angular_accel_meas);
 nu_cmd = localCommandedVirtualAcceleration(x_ref, x_meas, outer);
 nu_err = localClipVector(nu_cmd - nu_meas, outer.accel_error_clip);
 
-eta_base = localMeasuredEta(actuator_state_meas, trim_cmd);
+eta_meas = localMeasuredEta(actuator_state_meas, trim_cmd);
+eta_trim = localTrimEta(trim_cmd);
+eta_base = localBlendTrimEta(eta_meas, eta_trim, ...
+    rotor_trim_feedforward_blend, surface_trim_feedforward_blend);
+G = localRuntimeEffectiveness(runtime_g_map, x_meas, eta_meas, ...
+    localBlendEffectiveness(indi_schedule, idxLo, idxHi, lambda));
 delta_eta = localWeightedLeastSquares(G, w_nu, w_eta, nu_err);
 delta_eta = localClipVector(delta_eta, delta_eta_limit);
 eta_cmd = eta_base + delta_eta;
@@ -212,23 +222,38 @@ function nu_cmd = localCommandedVirtualAcceleration(x_ref, x_meas, outer)
 g = 9.81;
 theta_ref = x_ref(2);
 
-% Steady body specific force for zero inertial acceleration:
+% Steady body specific force for the scheduled trim attitude:
 % Fx/m = g sin(theta), Fz/m = -g cos(theta) for phi approximately zero.
 specific_force_ff = [g * sin(theta_ref); -g * cos(theta_ref)];
 
 nu_cmd = zeros(3, 1);
 nu_cmd(1) = specific_force_ff(1) + outer.ku * (x_ref(4) - x_meas(4));
 nu_cmd(2) = specific_force_ff(2) + outer.kw * (x_ref(6) - x_meas(6));
+theta_cmd = localVelocityScheduledTheta(x_ref, x_meas);
 nu_cmd(3) = outer.kq * (x_ref(8) - x_meas(8)) + ...
-    outer.ktheta * (x_ref(2) - x_meas(2));
+    outer.ktheta * (theta_cmd - x_meas(2));
+end
+
+function theta_cmd = localVelocityScheduledTheta(x_ref, x_meas)
+theta_ref = x_ref(2);
+u_ref = x_ref(4);
+if abs(u_ref) < 1.0
+    theta_cmd = theta_ref;
+    return;
+end
+
+u_progress = x_meas(4) / u_ref;
+u_progress = min(max(u_progress, 0.0), 1.0);
+theta_cmd = u_progress * theta_ref;
 end
 
 function eta = localMeasuredEta(actuator_state_meas, trim_cmd)
 act = localVec(actuator_state_meas, 10);
-front_rpm = trim_cmd(1);
-rear_rpm = trim_cmd(2);
-delta_f = trim_cmd(3);
-delta_e = trim_cmd(5);
+eta_trim = localTrimEta(trim_cmd);
+front_rpm = sqrt(max(eta_trim(1), 0.0));
+rear_rpm = sqrt(max(eta_trim(2), 0.0));
+delta_f = eta_trim(3);
+delta_e = eta_trim(4);
 
 if abs(act(1)) + abs(act(2)) > 1.0
     front_rpm = 0.5 * (act(1) + act(2));
@@ -244,6 +269,22 @@ end
 front_rpm = max(front_rpm, 0.0);
 rear_rpm = max(rear_rpm, 0.0);
 eta = [front_rpm * front_rpm; rear_rpm * rear_rpm; delta_f; delta_e];
+end
+
+function eta = localTrimEta(trim_cmd)
+front_rpm = max(trim_cmd(1), 0.0);
+rear_rpm = max(trim_cmd(2), 0.0);
+eta = [front_rpm * front_rpm; rear_rpm * rear_rpm; trim_cmd(3); trim_cmd(5)];
+end
+
+function eta = localBlendTrimEta(eta_meas, eta_trim, rotor_blend, surface_blend)
+eta = eta_meas;
+for i = 1:2
+    eta(i) = eta_meas(i) + rotor_blend * (eta_trim(i) - eta_meas(i));
+end
+for i = 3:4
+    eta(i) = eta_meas(i) + surface_blend * (eta_trim(i) - eta_meas(i));
+end
 end
 
 function delta_eta = localWeightedLeastSquares(G, w_nu, w_eta, nu_err)
@@ -374,8 +415,145 @@ G1 = localEffectivenessPage(schedule, idxHi);
 G = (1.0 - lambda) * G0 + lambda * G1;
 end
 
+function G = localRuntimeEffectiveness(runtime_g_map, x_meas, eta_meas, fallbackG)
+G = fallbackG;
+headerPage = 1;
+if isempty(runtime_g_map) || size(runtime_g_map, 3) < headerPage
+    return;
+end
+if abs(runtime_g_map(1, 1, headerPage) - 6606.0) > 0.5
+    return;
+end
+
+u = x_meas(4);
+w = x_meas(6);
+vinf = sqrt(u * u + w * w);
+alphaDeg = atan2(w, u) * 180.0 / pi;
+deltaFDeg = eta_meas(3) * 180.0 / pi;
+deltaEDeg = eta_meas(4) * 180.0 / pi;
+
+flapValues = localRuntimeMapTrilinear(runtime_g_map, headerPage, vinf, alphaDeg, deltaFDeg);
+elevValues = localRuntimeMapTrilinear(runtime_g_map, headerPage, vinf, alphaDeg, deltaEDeg);
+
+for row = 1:3
+    if isfinite(flapValues(row))
+        G(row, 3) = flapValues(row);
+    end
+    if isfinite(elevValues(row + 3))
+        G(row, 4) = elevValues(row + 3);
+    end
+end
+end
+
+function values = localRuntimeMapTrilinear(schedule, headerPage, vinf, alphaDeg, deltaDeg)
+values = zeros(6, 1);
+nV = max(1, round(schedule(1, 2, headerPage)));
+nA = max(1, round(schedule(1, 3, headerPage)));
+nD = max(1, round(schedule(1, 4, headerPage)));
+dataStartPage = max(1, round(schedule(1, 6, headerPage)));
+
+[iV0, iV1, lV] = localRuntimeGridBracket(schedule, headerPage, 1, nV, vinf);
+[iA0, iA1, lA] = localRuntimeGridBracket(schedule, headerPage, 1 + nV, nA, alphaDeg);
+[iD0, iD1, lD] = localRuntimeGridBracket(schedule, headerPage, 1 + nV + nA, nD, deltaDeg);
+
+for dBit = 0:1
+    if dBit == 0
+        iD = iD0;
+        wD = 1.0 - lD;
+    else
+        iD = iD1;
+        wD = lD;
+    end
+    for aBit = 0:1
+        if aBit == 0
+            iA = iA0;
+            wA = 1.0 - lA;
+        else
+            iA = iA1;
+            wA = lA;
+        end
+        for vBit = 0:1
+            if vBit == 0
+                iV = iV0;
+                wV = 1.0 - lV;
+            else
+                iV = iV1;
+                wV = lV;
+            end
+            weight = wV * wA * wD;
+            sample = localRuntimeMapData(schedule, dataStartPage, iV, iA, iD, nV, nA);
+            values = values + weight * sample;
+        end
+    end
+end
+end
+
+function [i0, i1, lambda] = localRuntimeGridBracket(schedule, headerPage, startIdx, n, value)
+i0 = 1;
+i1 = 1;
+lambda = 0.0;
+if n <= 1
+    return;
+end
+
+firstValue = localRuntimeGridValue(schedule, headerPage, startIdx);
+lastValue = localRuntimeGridValue(schedule, headerPage, startIdx + n - 1);
+if value <= firstValue
+    return;
+end
+if value >= lastValue
+    i0 = n;
+    i1 = n;
+    return;
+end
+
+for idx = 1:(n - 1)
+    v0 = localRuntimeGridValue(schedule, headerPage, startIdx + idx - 1);
+    v1 = localRuntimeGridValue(schedule, headerPage, startIdx + idx);
+    if value >= v0 && value <= v1
+        i0 = idx;
+        i1 = idx + 1;
+        denom = max(v1 - v0, 1e-9);
+        lambda = min(max((value - v0) / denom, 0.0), 1.0);
+        return;
+    end
+end
+end
+
+function value = localRuntimeGridValue(schedule, headerPage, flatIdx)
+gridStartPage = headerPage + 1;
+pageOffset = floor((flatIdx - 1) / 54);
+offsetInPage = flatIdx - pageOffset * 54;
+row = ceil(offsetInPage / 9);
+col = offsetInPage - (row - 1) * 9;
+page = gridStartPage + pageOffset;
+value = schedule(row, col, page);
+end
+
+function values = localRuntimeMapData(schedule, dataStartPage, iV, iA, iD, nV, nA)
+linearIdx = (iD - 1) * nV * nA + (iA - 1) * nV + iV;
+page = dataStartPage + linearIdx - 1;
+values = zeros(6, 1);
+for idx = 1:6
+    values(idx) = schedule(1, idx, page);
+end
+end
+
 function value = localBlendScalar(vec, idxLo, idxHi, lambda)
 value = (1.0 - lambda) * vec(idxLo) + lambda * vec(idxHi);
+end
+
+function value = localBlendScheduleMatrixScalar(schedule, rowIdx, colIdx, idxLo, idxHi, lambda, fallback)
+value = fallback;
+if size(schedule, 1) < rowIdx || size(schedule, 2) < colIdx
+    return;
+end
+v0 = schedule(rowIdx, colIdx, idxLo);
+v1 = schedule(rowIdx, colIdx, idxHi);
+candidate = (1.0 - lambda) * v0 + lambda * v1;
+if isfinite(candidate)
+    value = min(max(candidate, 0.0), 1.0);
+end
 end
 
 function tf = localAllZero(vec)
