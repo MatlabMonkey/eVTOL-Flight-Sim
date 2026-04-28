@@ -45,7 +45,7 @@ if height(incomingRows) == 0
     assignin('base', 'transitionTrimMasterAttemptDB', transitionTrimMasterAttemptDB);
     return;
 end
-allRows = [existingRows; incomingRows]; %#ok<AGROW>
+allRows = [existingRows; incomingRows];
 allRows = localEnsureMasterSchema(allRows);
 allRows = localDeduplicateMasterRows(allRows);
 bestUnique = localBuildBestUniquePoints(allRows);
@@ -75,14 +75,14 @@ transitionTrimMasterAttemptDB.validation = struct( ...
     'best_unique_row_count', height(bestUnique), ...
     'pass', true);
 
-if opts.write_mat_export
-    save(opts.master_mat_file, 'transitionTrimMasterAttemptDB', '-v7.3');
-end
 if opts.write_csv_export
     writetable(allRows, opts.master_csv_file);
 end
 if opts.write_markdown_export
     localWriteMasterMarkdown(opts.master_md_file, transitionTrimMasterAttemptDB);
+end
+if opts.write_mat_export
+    localSafeSaveMasterMat(opts.master_mat_file, transitionTrimMasterAttemptDB);
 end
 
 assignin('base', 'transitionTrimMasterAttemptDB', transitionTrimMasterAttemptDB);
@@ -120,19 +120,25 @@ db.master_attempt_db_all_rows = localEmptyMasterTable();
 db.master_attempt_db_best_unique_points = localEmptyMasterTable();
 
 if exist(masterMatFile, 'file') == 2
-    raw = load(masterMatFile);
-    if isfield(raw, 'transitionTrimMasterAttemptDB')
-        src = raw.transitionTrimMasterAttemptDB;
-        if isstruct(src) && isfield(src, 'master_attempt_db_all_rows')
-            db = src;
-            db.master_attempt_db_all_rows = localEnsureMasterSchema(src.master_attempt_db_all_rows);
-            if isfield(src, 'master_attempt_db_best_unique_points')
-                db.master_attempt_db_best_unique_points = localEnsureMasterSchema(src.master_attempt_db_best_unique_points);
-            else
-                db.master_attempt_db_best_unique_points = localBuildBestUniquePoints(db.master_attempt_db_all_rows);
+    try
+        raw = load(masterMatFile);
+        if isfield(raw, 'transitionTrimMasterAttemptDB')
+            src = raw.transitionTrimMasterAttemptDB;
+            if isstruct(src) && isfield(src, 'master_attempt_db_all_rows')
+                db = src;
+                db.master_attempt_db_all_rows = localEnsureMasterSchema(src.master_attempt_db_all_rows);
+                if isfield(src, 'master_attempt_db_best_unique_points')
+                    db.master_attempt_db_best_unique_points = localEnsureMasterSchema(src.master_attempt_db_best_unique_points);
+                else
+                    db.master_attempt_db_best_unique_points = localBuildBestUniquePoints(db.master_attempt_db_all_rows);
+                end
+                return;
             end
-            return;
         end
+    catch ME
+        warning('TrimDB_UpdateMaster:UnreadableMasterMat', ...
+            'Unable to read master MAT file %s; falling back to CSV. Cause: %s', ...
+            char(masterMatFile), ME.message);
     end
 end
 
@@ -140,6 +146,25 @@ if exist(masterCsvFile, 'file') == 2
     tbl = readtable(masterCsvFile, 'TextType', 'string');
     db.master_attempt_db_all_rows = localEnsureMasterSchema(tbl);
     db.master_attempt_db_best_unique_points = localBuildBestUniquePoints(db.master_attempt_db_all_rows);
+end
+end
+
+function localSafeSaveMasterMat(masterMatFile, transitionTrimMasterAttemptDB)
+masterMatFile = string(masterMatFile);
+tempFile = masterMatFile + ".part.mat";
+try
+    if exist(char(tempFile), 'file') == 2
+        delete(char(tempFile));
+    end
+    save(char(tempFile), 'transitionTrimMasterAttemptDB', '-v7.3');
+    movefile(char(tempFile), char(masterMatFile), 'f');
+catch ME
+    warning('TrimDB_UpdateMaster:MasterMatWriteFailed', ...
+        'Unable to write master MAT file %s; CSV/MD exports were already written. Cause: %s', ...
+        char(masterMatFile), ME.message);
+    if exist(char(tempFile), 'file') == 2
+        delete(char(tempFile));
+    end
 end
 end
 

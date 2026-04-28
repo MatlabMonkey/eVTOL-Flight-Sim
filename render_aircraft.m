@@ -21,7 +21,8 @@ function hFig = render_aircraft(varargin)
 %       'surface_deflections', [deltaLW; deltaRW; deltaLT; deltaRT], ...
 %       'theme', 'report', ...
 %       'figure_visible', 'off', ...
-%       'show_axes', false)
+%       'show_axes', false, ...
+%       'show_aero_normals', false)
 %
 % Local surface-deflection vector order:
 %   [deltaLW; deltaRW; deltaLT; deltaRT]
@@ -74,6 +75,7 @@ p.addParameter('body_eul', [], @isnumeric);
 p.addParameter('body_eul_deg', [], @isnumeric);
 p.addParameter('body_pos', [], @isnumeric);
 p.addParameter('show_vectors', true, @(x) islogical(x) || isnumeric(x));
+p.addParameter('show_aero_normals', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_labels', true, @(x) islogical(x) || isnumeric(x));
 p.addParameter('show_input_markers', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('normal_scale', 1.4, @isnumeric);
@@ -259,8 +261,12 @@ if opts.show_input_markers
 end
 
 if opts.show_vectors
-    hAeroNormal = localPlotSurfaceNormals(surface_normal_specs, opts.normal_scale, opts.show_labels, label_sizes);
-    hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels, label_sizes);
+    hAeroNormal = gobjects(0);
+    hControlNormal = gobjects(0);
+    if opts.show_aero_normals
+        hAeroNormal = localPlotSurfaceNormals(surface_normal_specs, opts.normal_scale, opts.show_labels, label_sizes);
+        hControlNormal = localPlotControlSurfaceNormals(control_surface_specs, opts.normal_scale, opts.show_labels, label_sizes);
+    end
     [hFrontThrust, hRearThrust] = localPlotThrustVectors( ...
         frontSpecs, rearSpecs, opts.thrust_scale, opts.show_labels, label_sizes);
     if ~isempty(hControlNormal) && isgraphics(hControlNormal)
