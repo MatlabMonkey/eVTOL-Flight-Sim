@@ -1,6 +1,6 @@
 # INDI Control Work Done
 
-Last reviewed: 2026-04-28 02:21 PDT
+Last reviewed: 2026-04-28 02:57 PDT
 
 Status update: this note is now partially superseded by the first implemented
 scheduled INDI controller in `controllers/controller_indi_transition.m` and
@@ -184,6 +184,64 @@ Saved artifacts:
 workspace_plots/indi_full_hover_to_cruise_tuning_sweep_150s/
 workspace_plots/indi_full_hover_to_cruise_tuning_refine_150s/
 workspace_plots/indi_full_hover_to_cruise_best_reg10_q2_300s/
+```
+
+## Follow-Up INDI Tuning Sweep
+
+After the `reg10_q2` validation, a narrower sweep was run around the same
+controller structure:
+
+```matlab
+builderOpts.allocation.virtual_error_weights = [0.30; 1.00; 2.0];
+builderOpts.allocation.control_regularization = [1.2e-6; 1.2e-6; surfaceReg; surfaceReg];
+```
+
+The goal was to reduce peak flap/elevator motion without losing the complete
+hover-to-cruise transition. With `qdot` weight fixed at `2.0`, increasing the
+surface regularization produced the following successful 150 s cases:
+
+```text
+case        reaches target  max abs flap  max abs elevator  min rear actual
+reg11_q2    yes             8.30 deg      7.70 deg          326 rpm
+reg16_q2    yes             8.28 deg      7.56 deg          ~0 rpm
+reg18_q2    yes             8.09 deg      8.01 deg          ~0 rpm
+reg20_q2    yes             7.81 deg      8.58 deg          ~0 rpm
+```
+
+The surface-only optimum is misleading: higher surface regularization unloads
+the rear rotor too aggressively. An asymmetric rotor-regularization branch was
+also tested to protect rear RPM. It preserved rear RPM, but it pushed elevator
+usage into the `11-25 deg` range and was rejected.
+
+The best balanced follow-up candidate is therefore `reg11_q2`. It was rerun for
+300 s:
+
+```text
+final Vinf              = 70.000 m/s
+final alpha             = ~0 deg
+final theta             = 3.3888 deg
+final u error           = ~0 m/s
+final theta error       = ~0 deg
+max abs flap actual     = 8.302 deg
+max abs elevator actual = 7.700 deg
+min rear actual RPM     = 326 rpm
+surface limit hit       = false
+reaches target          = true
+```
+
+Current recommendation:
+
+```text
+reg10_q2 = safer default, slightly higher surfaces, better rear-RPM margin
+reg11_q2 = lower peak surfaces, but rear RPM dips to ~326 rpm
+```
+
+Saved artifacts:
+
+```text
+workspace_plots/indi_full_hover_to_cruise_tuning_refine3_150s/
+workspace_plots/indi_full_hover_to_cruise_tuning_refine4_150s/
+workspace_plots/indi_full_hover_to_cruise_candidate_reg11_q2_300s/
 ```
 
 ## Current Idea
