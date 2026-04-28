@@ -1,6 +1,6 @@
 # INDI Control Work Done
 
-Last reviewed: 2026-04-28 01:59 PDT
+Last reviewed: 2026-04-28 02:21 PDT
 
 Status update: this note is now partially superseded by the first implemented
 scheduled INDI controller in `controllers/controller_indi_transition.m` and
@@ -125,6 +125,65 @@ Validation run:
 
 ```text
 checkcode controllers/builders/build_indi_transition_controller.m: PASS
+```
+
+### Refined Surface-Regularized Tune
+
+After the deduped 4+3+5 case was working, a second tuning pass varied the
+surface allocator regularization and qdot virtual-axis weighting. The useful
+trend was clear: path-cost changes had little effect on the dynamic surface
+peaks, but increasing the surface regularization in the allocator strongly
+reduced flap/elevator excursions while still reaching the final cruise point.
+
+The best 150 s refinement was:
+
+```matlab
+builderOpts.allocation.virtual_error_weights = [0.30; 1.00; 2.0];
+builderOpts.allocation.control_regularization = [1.2e-6; 1.2e-6; 10.0; 10.0];
+```
+
+with the same path, gating, outer-loop gains, runtime G-map, and no trim
+feedforward:
+
+```matlab
+builderOpts.outer_loop.kq = 2.20;
+builderOpts.outer_loop.ktheta = 2.10;
+builderOpts.outer_loop.ktheta_high_speed = 2.60;
+builderOpts.allocation.rotor_trim_feedforward_blend = 0.0;
+builderOpts.allocation.surface_trim_feedforward_blend = 0.0;
+```
+
+The 150 s sweep ranking for the best cases was:
+
+```text
+case          reaches target  max abs flap  max abs elevator
+reg10_q2      yes             8.43 deg      8.38 deg
+reg8_q3       yes            10.10 deg      9.65 deg
+reg8_q2p5     yes            10.31 deg      9.63 deg
+reg6_q3       yes            13.62 deg     11.87 deg
+03b baseline  yes            21.10 deg     21.78 deg
+```
+
+The best `reg10_q2` case was then rerun for 300 s:
+
+```text
+final Vinf              = 70.000 m/s
+final alpha             = ~0 deg
+final theta             = 3.3888 deg
+final u error           = ~0 m/s
+final theta error       = ~0 deg
+max abs flap actual     = 8.426 deg
+max abs elevator actual = 8.380 deg
+surface limit hit       = false
+reaches target          = true
+```
+
+Saved artifacts:
+
+```text
+workspace_plots/indi_full_hover_to_cruise_tuning_sweep_150s/
+workspace_plots/indi_full_hover_to_cruise_tuning_refine_150s/
+workspace_plots/indi_full_hover_to_cruise_best_reg10_q2_300s/
 ```
 
 ## Current Idea
