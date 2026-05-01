@@ -1,27 +1,5 @@
 function videoInfo = make_evtol_video(varargin)
-%MAKE_EVTOL_VIDEO Render an isolated eVTOL state video to MP4.
-%
-% Usage:
-%   make_evtol_video()
-%   make_evtol_video('sim_out', simOut, ...
-%       'video_name', 'hover_transition', ...
-%       'output_file', 'workspace_plots/my_video.mp4', ...
-%       'save_to_report', true, ...
-%       'fps', 20, 'playback_speed', 1.25, 't_start', [], 't_end', [], ...
-%       'show_aero_normals', false, ...
-%       'show_trajectory', true, 'save_trajectory_plot', true)
-%
-% Expected SimulationOutput fields:
-%   pos_NED, eul_truth, V_B_truth, omega_truth
-%
-% Preferred current actuator logging layout in sim_out:
-%   actuator_state_truth.signals.values or actuator_state_meas.signals.values:
-%     [FR rpm, FL rpm, RR rpm, RL rpm, FR tilt deg, FL tilt deg, ...
-%      LW rad, RW rad, LT rad, RT rad]
-%
-% Fallback legacy internal logging layout in sim_out:
-%   tilt_angles_cmd, front_collective_rpm_out, rear_collective_rpm_out,
-%   deltaLW_cmd, deltaRW_cmd, deltaLT_cmd, deltaRT_cmd.
+% make video
 
 p = inputParser;
 p.addParameter('sim_out', [], @(x) isempty(x) || isstruct(x) || isobject(x));

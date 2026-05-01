@@ -1,19 +1,4 @@
-% TrimSearch_Run.m
-% User-facing entrypoint for transition trim searches.
-%
-% Preferred usage:
-%   Init_Main
-%   transitionTrimSearchOptions = struct('target_limit', 20);
-%   TrimSearch_Run
-%   TrimDB_Build
-%
-% This script owns the clean workflow:
-%   search -> databases/trim_attempts
-%          -> databases/transition_trim_linearizations
-%
-% The current engine is the guide-grid scored search. Search profiles select
-% target generators, guide curves, seed families, and optional physics seeds
-% without reintroducing one-off campaign scripts.
+% run trim search
 
 if ~exist('transitionTrimSearchOptions', 'var') || ~isstruct(transitionTrimSearchOptions)
     transitionTrimSearchOptions = struct();

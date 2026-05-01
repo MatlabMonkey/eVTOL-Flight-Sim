@@ -1,31 +1,4 @@
-% TrimDB_Build.m
-% Build the canonical trim databases:
-%   1. trim_attempts.*
-%   2. controller_schedule.*
-%
-% Preferred workflow:
-%   - new trim searches write directly into trim_attempts
-%   - new trim searches save linearizationPoint files and link them from the master DB
-%   - this builder rebuilds controller_schedule from the canonical master DB
-%   - explicit CSV source import remains as a legacy recovery/rebuild mode
-%
-% Usage:
-%   TrimDB_Build
-%
-% Optional configuration:
-%   transitionTrimDatabaseOptions = struct( ...
-%       'rebuild_master_from_sources', false, ...
-%       'include_smoke_sources', false, ...
-%       'controller_include_quasi_trims', false, ...
-%       'controller_allow_trim_only_candidates', false, ...
-%       'controller_exclude_zero_rear', true, ...
-%       'preserve_existing_controller_points', true, ...
-%       'write_controller_diagnostics', false, ...
-%       'extra_trim_sources', {'legacy_search_summary.csv'}, ...
-%       'extra_linearization_index_sources', {'my_linearization_index.csv'}, ...
-%       'extra_linearization_roots', {'/abs/path/to/my_linearizations'}, ...
-%       'include_full_order_linearization', true);
-%   TrimDB_Build
+% build trim DB
 
 if ~exist('transitionTrimDatabaseOptions', 'var') || ~isstruct(transitionTrimDatabaseOptions)
     transitionTrimDatabaseOptions = struct();
@@ -215,8 +188,8 @@ for i = 1:numel(rebuiltPoints)
     rebuiltKey = string(rebuiltPoint.key);
     existingIdx = find(mergedKeys == rebuiltKey, 1, 'first');
     if isempty(existingIdx)
-        mergedPoints(end + 1, 1) = rebuiltPoint; %#ok<AGROW>
-        mergedKeys(end + 1, 1) = rebuiltKey; %#ok<AGROW>
+        mergedPoints(end + 1, 1) = rebuiltPoint;
+        mergedKeys(end + 1, 1) = rebuiltKey; 
         mergeSummary.added_rebuilt_rows = mergeSummary.added_rebuilt_rows + 1;
     else
         mergedPoints(existingIdx) = rebuiltPoint;

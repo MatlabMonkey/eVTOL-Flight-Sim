@@ -1,16 +1,4 @@
-% TrimSearch_Preview.m
-% Preview the simpler mid-band guide-grid search before launching it.
-%
-% Optional workspace overrides before running:
-%   transitionMidbandGuideGridPreviewOptions = struct(...);
-%
-% Outputs left in the base workspace:
-%   - transitionMidbandGuideGridPreviewDir
-%   - transitionMidbandGuideGridPreviewSummary
-%
-% Main output files:
-%   workspace_plots/transition_midband_guidegrid_preview_<timestamp>/
-%     midband_guidegrid_preview.png
+% preview trim search
 
 stack = dbstack('-completenames');
 if ~isempty(stack)

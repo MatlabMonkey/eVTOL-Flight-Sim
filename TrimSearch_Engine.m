@@ -1,14 +1,4 @@
-% TrimSearch_Engine.m
-% Internal guide-grid transition-search engine. Prefer calling
-% TrimSearch_Run.m for normal use.
-%
-% This engine searches a tilt/airspeed guide grid, scores each trim, writes
-% attempts into the canonical master DB, and saves linked linearization
-% artifacts for usable points.
-%
-% Original default profile is a mid-band closure sweep over the 20..50 m/s
-% gap around a fixed tilt guide line and a fixed front/rear collective guide
-% corridor, using the canonical trim/controller databases as the anchor bank.
+% trim search engine
 
 if ~exist('transitionMidbandGuideGridOptions', 'var') || ~isstruct(transitionMidbandGuideGridOptions)
     transitionMidbandGuideGridOptions = struct();

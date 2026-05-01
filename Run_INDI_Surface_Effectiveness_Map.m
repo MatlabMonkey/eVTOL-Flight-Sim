@@ -1,18 +1,5 @@
 function map = Run_INDI_Surface_Effectiveness_Map(mode)
-%RUN_INDI_SURFACE_EFFECTIVENESS_MAP Entry point for INDI aero surface maps.
-%
-% Usage:
-%   Run_INDI_Surface_Effectiveness_Map('smoke')         % quick sanity check
-%   Run_INDI_Surface_Effectiveness_Map('coarse')        % durable coarse map
-%   Run_INDI_Surface_Effectiveness_Map('fillin_offset2')% second fill-in map
-%   Run_INDI_Surface_Effectiveness_Map('migrate_database')
-%   Run_INDI_Surface_Effectiveness_Map('delta_dense_transition')
-%   Run_INDI_Surface_Effectiveness_Map('transition_alpha_band_delta_dense')
-%   Run_INDI_Surface_Effectiveness_Map('alpha_refined_global')
-%   Run_INDI_Surface_Effectiveness_Map('stall_boundary_delta_alpha_dense')
-%   Run_INDI_Surface_Effectiveness_Map('low_speed_high_alpha_fillin')
-%   Run_INDI_Surface_Effectiveness_Map('poststall_high_alpha_fillin')
-%   Run_INDI_Surface_Effectiveness_Map('low_speed_stall_boundary_dense')
+% INDI surface map builder
 
 if nargin < 1 || isempty(mode)
     mode = 'smoke';

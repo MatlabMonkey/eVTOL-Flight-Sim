@@ -1,16 +1,4 @@
-% Plot_Trim_NewMap.m
-% Plot the new Vinf/tilt/alpha trim-formulation database.
-%
-% Usage:
-%   Plot_Trim_NewMap
-%
-% Optional overrides:
-%   trimNewMapPlotOptions = struct( ...
-%       'database_name', 'trim_vinf_alpha_v1', ...
-%       'master_db_file', '<abs path>/trim_attempts.mat', ...
-%       'show_popup', true, ...
-%       'show_guide_curve', true, ...
-%       'output_dir', '');
+% plot new trim map
 
 if ~exist('trimNewMapPlotOptions', 'var') || ~isstruct(trimNewMapPlotOptions)
     trimNewMapPlotOptions = struct();

@@ -1,24 +1,4 @@
-% Run_Main.m
-% Prepare and optionally run the nonlinear main-plant simulation.
-%
-% Preferred usage:
-%   Init_Main
-%   trimCase = struct(...);
-%   Trim_Main
-%   runCase = struct('attemptSimulation', false);
-%   Run_Main
-%
-% This script consumes:
-%   - initData
-%   - trimResult
-%   - controllerData (optional)
-%   - runCase (optional)
-%
-% It produces:
-%   - runSpec     Plain numeric run definition used by the model
-%   - runContext  Structured summary of what was pushed into the model
-%   - runResult   Outcome summary
-%   - simOut      Simulink output (if simulation succeeds)
+% prep or run Wrapper
 
 if ~exist('initData', 'var') || ~isstruct(initData)
     error('initData is required. Run Init_Main before Run_Main.');
@@ -272,11 +252,25 @@ runResult.trimSummary = struct( ...
 
 simOut = [];
 
+% Keep the model StopTime aligned with the prepared run even when the user
+% presses Play manually after a prep-only Run_Main call.
+try
+    load_system(runSpec.modelName);
+    wasDirty = strcmp(get_param(runSpec.modelName, 'Dirty'), 'on');
+    set_param(runSpec.modelName, 'StopTime', num2str(runSpec.stopTime));
+    if ~wasDirty
+        set_param(runSpec.modelName, 'Dirty', 'off');
+    end
+catch ME
+    warning('Run_Main:SetStopTimeFailed', ...
+        'Could not set %s StopTime to %.3g s: %s', ...
+        runSpec.modelName, runSpec.stopTime, ME.message);
+end
+
 if runSpec.attemptSimulation
     try
-        load_system(runSpec.modelName);
         simOut = sim(runSpec.modelName, 'StopTime', num2str(runSpec.stopTime));
-        out = simOut; %#ok<NASGU>
+        out = simOut;
         assignin('base', 'out', out);
         runResult.status = 'simulated';
         runResult.message = 'Simulation completed successfully.';
@@ -402,7 +396,7 @@ if isempty(in)
     return;
 end
 
-if ndims(in) < 3
+if ismatrix(in)
     value = zeros(6, 9, pageCount);
     rows = min(size(in, 1), 6);
     cols = min(size(in, 2), 9);

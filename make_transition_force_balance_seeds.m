@@ -1,9 +1,5 @@
 function [seeds, details] = make_transition_force_balance_seeds(initData, trimCase, options)
-%MAKE_TRANSITION_FORCE_BALANCE_SEEDS Build static force/moment trim seeds.
-%
-% This helper estimates front/rear collective, flap, elevator, and theta
-% guesses near a requested (Vinf, alpha, tilt). It does not replace FindOp;
-% it only gives FindOp a physically meaningful starting point.
+% transition trim seeds
 
 if nargin < 2 || ~isstruct(initData) || ~isstruct(trimCase)
     error('make_transition_force_balance_seeds requires initData and trimCase structs.');

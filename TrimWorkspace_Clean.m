@@ -1,24 +1,4 @@
-% TrimWorkspace_Clean.m
-% Dry-run cleanup helper for transition-trim workspace outputs.
-%
-% Default behavior:
-%   - scans workspace_plots
-%   - classifies files/dirs into keep vs removable buckets
-%   - prints a size summary
-%   - does NOT delete anything unless explicitly enabled
-%
-% Optional workspace override:
-%   transitionTrimCleanupOptions = struct( ...
-%       'profile', 'standard', ...  % 'standard' or 'controller_db_lean'
-%       'apply', false, ...
-%       'delete_mode', 'trash', ...   % 'trash' or 'delete'
-%       'keep_report_plots_final', true, ...
-%       'keep_legacy_linearization_roots', false, ...
-%       'include_nontrim_media', false, ...
-%       'keep_controller_build_logs', false);
-%
-% Outputs left in base workspace:
-%   - transitionTrimCleanupSummary
+% cleanup check
 
 stack = dbstack('-completenames');
 if ~isempty(stack)

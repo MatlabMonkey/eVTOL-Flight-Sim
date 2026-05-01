@@ -1,9 +1,5 @@
 function [seed, details] = make_low_speed_surface_seed(initData, trimCase)
-%MAKE_LOW_SPEED_TWO_PASS_SEED Build a prop seed with flap/elevator cleanup.
-%
-% Pass 1 estimates front/rear RPM and theta with zero surfaces. Pass 2 holds
-% those prop guesses fixed and solves a small [flap; elevator] correction to
-% reduce vertical-force and pitch-moment residuals. This is only a seed.
+% low speed surface seed
 
 if nargin < 2
     error('make_low_speed_surface_seed requires initData and trimCase.');

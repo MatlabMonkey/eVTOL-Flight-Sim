@@ -1,10 +1,5 @@
 function [seed, details] = make_low_speed_prop_seed(initData, trimCase)
-%MAKE_LOW_SPEED_PROP_FIRST_PASS_SEED Build a physics-based low-speed seed.
-%
-% This is the reusable part of the old low-speed scored sweep. It estimates
-% front/rear prop RPM and theta by balancing weight, drag, and pitch moment
-% using the active wing/tail polars. It does not trim the model; it only
-% gives the optimizer a better starting point near hover/low-speed flight.
+% low speed prop seed
 
 if nargin < 2 || ~isstruct(initData) || ~isstruct(trimCase)
     error('make_low_speed_prop_seed requires initData and trimCase structs.');

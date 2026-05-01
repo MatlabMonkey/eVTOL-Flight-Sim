@@ -1,9 +1,4 @@
-% Init_Main.m
-% Canonical initialization script for the eVTOL Flight Sim workflow.
-%
-% This script owns aircraft constants, default workspace variables, and a
-% neutral default run configuration. It does not solve trim or build a
-% controller. Those jobs now live in the trim and controller scripts.
+% init workspace
 
 clearvars -except render_enable initOptions trimCase trimSpec trimResult ...
     controllerData runCase runSpec runSuite suiteResults runResult ...

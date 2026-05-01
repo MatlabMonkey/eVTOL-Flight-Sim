@@ -1,22 +1,5 @@
 function result = Run_INDI_PerturbationRejection_Test(pathIndex, perturbation, opts)
-%RUN_INDI_PERTURBATIONREJECTION_TEST Run INDI verification test 3.
-%
-% This uses the same single fixed trim point and fixed INDI schedule as
-% Run_INDI_FrozenTrimHold_Test, but starts Wrapper slightly away from trim.
-% The command/reference stays fixed at the unperturbed trim point.
-%
-% Usage:
-%   result = Run_INDI_PerturbationRejection_Test
-%   result = Run_INDI_PerturbationRejection_Test([], struct('u_mps', 2.0))
-%   result = Run_INDI_PerturbationRejection_Test([], struct('theta_deg', 3.0))
-%   result = Run_INDI_PerturbationRejection_Test(10, 'w')
-%
-% Named perturbation presets:
-%   'u'      +2 m/s body-axis u offset
-%   'w'      +0.75 m/s body-axis w offset
-%   'theta'  +3 deg pitch offset
-%   'q'      +2 deg/s pitch-rate offset
-%   'all'    combined small offsets in u, w, theta, and q
+% INDI offset test
 
 if nargin < 1
     pathIndex = [];

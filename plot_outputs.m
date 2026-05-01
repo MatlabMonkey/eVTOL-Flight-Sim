@@ -1,15 +1,5 @@
 function plot_outputs(mode)
-%PLOT_OUTPUTS Plot fixed Wrapper outputs from base-workspace `out`.
-%
-% Usage:
-%   plot_outputs
-%   plot_outputs('important')
-%   plot_outputs('all')
-%
-% Modes:
-%   longitudinal (default)  Core longitudinal truth signals
-%   important               Broader truth/visualization set
-%   all                     All known top-level Wrapper outputs
+% plot Wrapper outputs
 
 if nargin < 1 || isempty(mode)
     mode = 'longitudinal';

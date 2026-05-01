@@ -1,9 +1,5 @@
 function [trimResult, trimSpec] = trim_evtol_case(initData, trimCase, options)
-%TRIM_EVTOL_CASE Solve one trim case and optionally linearize it.
-%
-% This is the shared trim implementation used by:
-%   - Trim_Main.m
-%   - TrimSearch_Run.m
+% solve one trim
 
     if nargin < 3 || isempty(options)
         options = struct();

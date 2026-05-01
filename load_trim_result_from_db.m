@@ -1,28 +1,5 @@
 function [trimResult, entry, meta] = load_trim_result_from_db(dbInput, selector, initData)
-%LOAD_TRIM_RESULT_FROM_DB Reconstruct a run-ready trimResult from a saved DB entry.
-%
-% Usage:
-%   [trimResult, entry, meta] = load_trim_result_from_db()
-%   [trimResult, entry, meta] = load_trim_result_from_db(dbFile)
-%   [trimResult, entry, meta] = load_trim_result_from_db(dbFile, selector)
-%   [trimResult, entry, meta] = load_trim_result_from_db(dbFile, selector, initData)
-%
-% The trim linearization DB stores replayed linear models plus compact trim
-% summaries, but not the full trimResult struct that Run_Main expects.
-% This helper rebuilds the run-facing trim state and actuator values so we
-% can prepare Wrapper directly from the DB without rerunning findop.
-%
-% selector can be:
-%   - empty                     -> exact hover point named "Hover"
-%   - char / string             -> match entry.name first, then entry.key
-%   - struct with optional fields:
-%         group                 -> "hover" or "cruise"
-%         name                  -> exact entry name
-%         key                   -> exact entry key
-%         index                 -> 1-based entry index within the chosen group
-%
-% The returned trimResult is compatible with Run_Main,
-% build_trim_point_lqr_controller, and build_trim_lqr_controller.
+% load trim from DB
 
 if nargin < 1 || isempty(dbInput)
     dbInput = localResolveDefaultDb();

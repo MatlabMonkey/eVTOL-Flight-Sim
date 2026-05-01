@@ -1,14 +1,5 @@
 function report = Run_INDI_Qdot_Effectiveness_Audit(pathIndex, opts)
-%RUN_INDI_QDOT_EFFECTIVENESS_AUDIT Compare scheduled and fresh qdot effectiveness.
-%
-% Usage:
-%   report = Run_INDI_Qdot_Effectiveness_Audit
-%   report = Run_INDI_Qdot_Effectiveness_Audit(10)
-%
-% This is a quick one-point diagnostic for the INDI pitch channel. It compares
-% the controller's scheduled G row for qdot against:
-%   - analytic front/rear propeller qdot derivatives, and
-%   - fresh Trim_Plant finite differences for flap/elevator qdot derivatives.
+% qdot check
 
 if nargin < 1 || isempty(pathIndex)
     pathIndex = [];

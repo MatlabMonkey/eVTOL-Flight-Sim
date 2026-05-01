@@ -1,26 +1,5 @@
 function scoreData = score_trim_point(trimResult, opts)
-%SCORE_TRIM_POINT Score a trim or near-trim point for controller use.
-%
-% Smaller scores are better. A score near 1 means the point is roughly at
-% the configured quasi-steady acceptance boundary for the selected profile.
-%
-% Required input:
-%   trimResult = struct from trim_evtol_case / Trim_Main
-%
-% Optional opts fields:
-%   profile                  = 'transition' (default) or 'hold'
-%   hold_horizon_s           = short-hold window used to convert residual
-%                              accelerations into physical drift
-%   include_euler_rate_terms = false by default
-%
-% Output fields:
-%   scoreData.score                 weighted RMS normalized score
-%   scoreData.max_normalized        worst normalized component
-%   scoreData.acceptable            true when max_normalized <= 1
-%   scoreData.classification        exact_trim / quasi_trim_usable /
-%                                   near_trim_borderline / not_usable
-%   scoreData.components            scored component details
-%   scoreData.raw_residuals         raw steady-state residual values
+% trim score
 
 if nargin < 2 || isempty(opts)
     opts = struct();

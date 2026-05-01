@@ -1,10 +1,9 @@
 function aircraft = aircraft_def(varargin)
-%AIRCRAFT_DEF Define the Brown eVTOL aircraft and derive model structs.
+% aircraft numbers
 
-% These literal defaults are intentionally easy to parse from tooling.
 flight_mode = 0;
 rho = 1.225;
-g = 9.81; % Positive gravity magnitude; model blocks build signed vectors explicitly
+g = 9.81;
 
 if nargin == 1 && isnumeric(varargin{1}) && isscalar(varargin{1})
     flight_mode = varargin{1};

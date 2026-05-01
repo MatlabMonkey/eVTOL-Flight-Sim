@@ -1,18 +1,4 @@
-% Trim_Main.m
-% Single-case trim entrypoint for the eVTOL_Simulation workflow.
-%
-% Expected usage:
-%   Init_Main
-%   trimCase = struct('name','Hover','mode','manual','Vinf_mps',0,'front_tilt_deg',0);
-%   Trim_Main
-%
-% This script consumes:
-%   - initData
-%   - trimCase
-%
-% It produces:
-%   - trimSpec
-%   - trimResult
+% one trim case
 
 if ~exist('initData', 'var') || ~isstruct(initData)
     error(['initData is required. Run Init_Main first so the trim script ', ...

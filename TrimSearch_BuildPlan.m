@@ -1,7 +1,5 @@
 function plan = TrimSearch_BuildPlan(userOptions, root_dir)
-%BUILD_MIDBAND_GUIDEGRID_PLAN Build transition-search targets and seeds.
-% This helper creates target points plus guide-curve seed previews. Profiles
-% choose the target strategy; the trim engine then searches each target.
+% build trim search plan
 
 if nargin < 1 || ~isstruct(userOptions)
     userOptions = struct();

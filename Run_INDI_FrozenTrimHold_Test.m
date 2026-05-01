@@ -1,21 +1,5 @@
 function result = Run_INDI_FrozenTrimHold_Test(pathIndex, opts)
-%RUN_INDI_FROZENTRIMHOLD_TEST Verify INDI can hold one fixed trim point.
-%
-% Usage:
-%   result = Run_INDI_FrozenTrimHold_Test
-%   result = Run_INDI_FrozenTrimHold_Test(10)
-%   result = Run_INDI_FrozenTrimHold_Test(10, struct('stopTime_s', 60))
-%   result = Run_INDI_FrozenTrimHold_Test([], struct( ...
-%       'initial_condition_offset', struct('u_mps', 2.0)))
-%
-% This is the first INDI verification test. It disables path advancement by
-% reducing the controller schedule to one point and starts Wrapper exactly
-% at that trim state. At trim, the virtual-control target is body specific
-% force [g*sin(theta); -g*cos(theta)] and qdot = 0, not zero acceleration.
-%
-% If opts.initial_condition_offset is provided, the same fixed trim target is
-% held but the Wrapper initial condition is offset. Supported fields are:
-%   u_mps, w_mps, theta_deg, q_deg_s
+% testing INDI at one trim point
 
 if nargin < 1 || isempty(pathIndex)
     pathIndex = [];

@@ -1,15 +1,5 @@
 function result = Run_INDI_PathSegment_Test(segmentIndex, opts)
-%RUN_INDI_PATHSEGMENT_TEST Run one adjacent segment of the INDI trim path.
-%
-% Usage:
-%   Run_INDI_PathSegment_Test
-%   Run_INDI_PathSegment_Test(1)
-%   Run_INDI_PathSegment_Test(3, struct('stopTime_s', 90))
-%   Run_INDI_PathSegment_Test([], struct('full_path', true, 'stopTime_s', 240))
-%
-% This is a narrow diagnostic runner. It builds the normal INDI transition
-% controller, slices it to path point N -> N+1, then runs the standard
-% Run_Main workflow with that two-point schedule.
+% INDI segment run
 
 if nargin < 1 || isempty(segmentIndex)
     segmentIndex = 1;

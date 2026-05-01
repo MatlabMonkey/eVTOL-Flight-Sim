@@ -1,24 +1,5 @@
 function report = measure_trim_control_effectiveness(trimResult, opts)
-%MEASURE_TRIM_POINT_CONTROL_EFFECTIVENESS Finite-difference check about a trim.
-%
-% report = measure_trim_control_effectiveness(trimResult)
-%
-% Required input:
-%   trimResult = struct returned by Trim_Main / trim_evtol_case
-%
-% Optional opts fields:
-%   delta_deg     = perturbation size in degrees (default 1)
-%   sim_stop_time = Trim_Plant stop time for each probe (default 0.02 s)
-%
-% The test perturbs the physical surface commands using the same mixed-control
-% combinations as the active plant/controller convention:
-%   +delta_f => [ +1; +1;  0;  0 ]
-%   +delta_a => [ +1; -1;  0;  0 ]
-%   +delta_e => [  0;  0; +1; +1 ]
-%   +delta_r => [  0;  0; -1; +1 ]
-%
-% It then compares the finite-difference body moments to the reduced
-% rigid-body input matrix in trimResult.linear.sys_ss_9state.
+% trim control check
 
 if nargin < 2 || isempty(opts)
     opts = struct();

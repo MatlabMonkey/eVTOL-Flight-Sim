@@ -1,8 +1,5 @@
 function paths = TrimDB_Paths(rootDir)
-%TRIMDB_PATHS Central paths for durable trim/controller databases.
-%
-% Durable database assets live in databases/. Generated plots, previews, and
-% optional debug run folders live in workspace_plots/.
+% trim DB paths
 
 if nargin < 1 || isempty(rootDir)
     stack = dbstack('-completenames');
